@@ -1,0 +1,4 @@
+lns_config:
+  host: eu.thethings.network:8883
+  appid: @TTN-APPID@
+  apptoken: @TTN-TOKEN@

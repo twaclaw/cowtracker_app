@@ -4,12 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-hbmqtt = "*"
 asyncio = "*"
 asyncpg = "*"
 pyyaml = "*"
+asyncio-mqtt = "*"
 
 [dev-packages]
+autopep8 = "*"
 
 [requires]
 python_version = "3.9"
