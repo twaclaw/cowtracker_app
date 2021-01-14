@@ -8,6 +8,7 @@ asyncio = "*"
 asyncpg = "*"
 pyyaml = "*"
 asyncio-mqtt = "*"
+ujson = "*"
 
 [dev-packages]
 autopep8 = "*"
