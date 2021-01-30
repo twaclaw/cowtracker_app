@@ -6,6 +6,7 @@ from typing import Dict, List
 
 logger = logging.getLogger('lns')
 
+
 class MessageStatus(Enum):
     ERROR = auto()
     NOFIX = auto()
@@ -15,14 +16,34 @@ class MessageStatus(Enum):
 class Message():
     def __init__(self, data: Dict[str, str]):
         self.__data = data
-        self.serial = self.__data['hardware_serial']
-        self.port = self.__data['port']
-        self.__raw = self.__data['payload_raw']
-        self.__base64 = b64decode(self.__raw)
+
+        try:
+            try:
+                self.dev_eui = self.__data['end_device_ids']['dev_eui']
+            except Exception:
+                self.dev_eui = None
+            self.__uplink_message = self.__data['uplink_message']
+            self.__raw = self.__uplink_message['frm_payload']
+            self.port = self.__uplink_message['f_port']
+            self.__base64 = b64decode(self.__raw)
+        except Exception as ex:
+            logger.exception(f"Invalid message received: {self.__data}")
+
+        try:
+            self.__rssi = self.__uplink_message['rx_metadata'][0]['rssi']
+            self.__snr = self.__uplink_message['rx_metadata'][0]['snr']
+        except Exception as ex:
+            logger.exception(
+                f"Couldn't extract rssi and snr from message: {self.__data}")
+            self.__rssi = None
+            self.__snr = None
 
     @property
     def payload(self):
         return f"0x{self.__base64.hex()}"
+
+    def __repr__(self):
+        return f"{self.dev_eui}:{self.port} -> {self.payload}"
 
     @staticmethod
     def _signed(val: int, bits: int):
@@ -33,9 +54,10 @@ class Message():
         val = 0
         offset += length - 1
         while length:
+            val = val*256 + bytes_[offset]
             offset -= 1
             length -= 1
-            val = (val << 8) + bytes_[offset]
+
         return val
 
     def decode(self):
@@ -84,15 +106,24 @@ class Message():
                 lonacc & 0x1FFFFFFF, 29) / 1000000
             self.accuracy = 2 * ((lonacc >> 29) & 0x7) + 2
 
+            logger.info(f"{self.dev_eui}:{self.port} -> {self.battery}V {self.temperature} C\
+                 ({self.batt_capacity}%) ({self.latitude}, {self.longitude}) {self.accuracy}%\
+                     rssi: {self.__rssi}, snr: {self.__snr}")
+
             return {
-                "Battery": self.battery,
+                "dev_eui": self.dev_eui,
+                "battery": self.battery,
                 "latitude": self.latitude,
                 "longitude": self.longitude,
                 "accuracy": self.accuracy,
-                "status": self.status
+                "temp": self.temperature,
+                "status": self.status,
+                "rssi": self.__rssi,
+                "snr": self.__snr,
             }
         else:
-            logger.info(f"Skipping received message: {self.payload} on port {self.port}.")
+            logger.info(
+                f"Skipping received message: {self.payload} on port {self.port}.")
 
     async def store(self):
         """
