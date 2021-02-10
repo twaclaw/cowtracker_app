@@ -2,9 +2,9 @@
 -- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 CREATE TABLE IF NOT EXISTS meas(
     id                  SERIAL PRIMARY KEY,
-    deveui               INT NOT NULL,
+    deveui              INT NOT NULL,
     t                   TIMESTAMP NOT NULL,
-    position            POINT NOT NULL,
+    pos                 POINT NOT NULL,
     accuracy            INT NOT NULL,
     batt_V              FLOAT,
     batt_cap            INT,

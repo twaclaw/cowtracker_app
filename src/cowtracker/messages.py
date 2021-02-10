@@ -1,10 +1,12 @@
-import asyncio
 from base64 import b64decode
+from datetime import datetime
 from enum import Enum, auto
 import logging
 from typing import Dict, List
 
-logger = logging.getLogger('lns')
+from cowtracker.db import  connection, pg_str
+
+logger = logging.getLogger('messages')
 
 
 class MessageStatus(Enum):
@@ -19,9 +21,9 @@ class Message():
 
         try:
             try:
-                self.dev_eui = self.__data['end_device_ids']['dev_eui']
+                self.dev_eui = int(self.__data['end_device_ids']['dev_eui'], 16)
             except Exception:
-                self.dev_eui = None
+                self.dev_eui = 0
             self.__uplink_message = self.__data['uplink_message']
             self.__raw = self.__uplink_message['frm_payload']
             self.port = self.__uplink_message['f_port']
@@ -32,7 +34,7 @@ class Message():
         try:
             self.__rssi = self.__uplink_message['rx_metadata'][0]['rssi']
             self.__snr = self.__uplink_message['rx_metadata'][0]['snr']
-        except Exception as ex:
+        except Exception:
             logger.exception(
                 f"Couldn't extract rssi and snr from message: {self.__data}")
             self.__rssi = None
@@ -129,4 +131,31 @@ class Message():
         """
         Store message to db
         """
-        pass
+        async with await connection() as conn:
+            sql = f'''
+            INSERT INTO meas
+            (
+                deveui,
+                t,
+                pos,
+                accuracy,
+                batt_V,
+                batt_cap,
+                temp,
+                rssi,
+                snr
+            )
+            VALUES
+            (
+                {self.dev_eui},
+                '{datetime.utcnow()}',
+                '({self.latitude}, {self.longitude})',
+                {self.accuracy},
+                {self.battery if self.battery else 'NULL'},
+                {self.batt_capacity if self.batt_capacity else 'NULL'},
+                {self.temperature if self.temperature else 'NULL'},
+                {self.__rssi if self.__rssi else 'NULL'},
+                {self.__snr if self.__snr else 'NULL'}
+            );
+            '''
+            await conn.execute(sql)

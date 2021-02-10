@@ -52,13 +52,6 @@ async def main():
                 pg_conf['database']
                 )
 
-    async with await connection() as conn:
-        sql = f'''
-        select * from meas;
-        '''
-        p = await conn.fetch(sql)
-        print(p)
-
     await asyncio.gather(
         hi_and_sleep(2),
         ttn_client.run_retry(topics)

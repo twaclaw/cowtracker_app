@@ -1,3 +1,4 @@
+from datetime import datetime
 import argparse
 import asyncio
 from asyncio_mqtt import Client, MqttError
@@ -12,9 +13,8 @@ from cowtracker.messages import Message
 
 logger = logging.getLogger('ttn')
 
-from datetime import datetime
 
-def log(msg, always_print: Optional[bool] = True) :
+def log(msg, always_print: Optional[bool] = True):
     if always_print:
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         msg = f"[{now}] {msg}"
@@ -75,12 +75,19 @@ class TTNClient():
                 payload = msg.payload
                 uplink = Message(ujson.loads(payload.decode()))
                 logger.info(f"Got uplink message {uplink}")
+                try:
+                    message = uplink.decode()
+                    try:
+                        if message is not None:
+                            #TODO: if status is valid
+                            await uplink.store()
+                    except Exception:
+                        logger.exception(
+                            f"Error storing message to db: {message}")
+                except Exception:
+                    logger.exception(f"Error decoding message {uplink}")
             except Exception:
                 logger.exception(f"Invalid message received: {msg.payload}")
-
-            message = uplink.decode()
-            print(message)
-
 
     async def cancel_tasks(self, tasks):
         for task in tasks:
