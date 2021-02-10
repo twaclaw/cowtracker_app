@@ -12,6 +12,14 @@ from cowtracker.messages import Message
 
 logger = logging.getLogger('ttn')
 
+from datetime import datetime
+
+def log(msg, always_print: Optional[bool] = True) :
+    if always_print:
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        msg = f"[{now}] {msg}"
+        print(msg)
+
 
 class TTNClient():
     def __init__(self, config: Dict[str, str], tls_context: ssl.SSLContext):
@@ -23,7 +31,7 @@ class TTNClient():
                                port=self.__port,
                                username=self.__username,
                                password=self.__password,
-                               tls_context=tls_context)
+                               tls_context=None)
         self.tasks = set()
 
     async def run(self, topics: Tuple):
@@ -58,7 +66,7 @@ class TTNClient():
     async def downlink(self, topics: Tuple):
         for topic in topics:
             message = 'Message'
-            print(f'[topic="{topic}"] Publishing message={message}')
+            logger.info(f'[topic="{topic}"] Publishing message={message}')
             await self.__client.publish(topic, message, qos=1)
 
     async def log_messages(self, messages, template):
@@ -66,11 +74,13 @@ class TTNClient():
             try:
                 payload = msg.payload
                 uplink = Message(ujson.loads(payload.decode()))
-                logger.info(f"Got uplink message {uplink.payload}")
-            except Exception as ex:
-                logger.exception("Invalid message received")
+                logger.info(f"Got uplink message {uplink}")
+            except Exception:
+                logger.exception(f"Invalid message received: {msg.payload}")
 
-            print(uplink.decode())
+            message = uplink.decode()
+            print(message)
+
 
     async def cancel_tasks(self, tasks):
         for task in tasks:
