@@ -1,3 +1,4 @@
+from aiohttp import web
 import argparse
 import asyncio
 import logging
@@ -8,14 +9,63 @@ import yaml
 
 from cowtracker.db import conf_db_uri,  connection
 from cowtracker.ttn import TTNClient
+from cowtracker.cows import Cows
 
 logger = logging.getLogger('server')
 
+# global variables
+routes = web.RouteTableDef()
+app = web.Application()
+cows_obj = Cows()
 
-async def hi_and_sleep(s: int):
-    while True:
-        # print("hello world")
-        await asyncio.sleep(s)
+
+# ------------------------------------------------------------
+# Application routes
+# ------------------------------------------------------------
+@routes.get('/names')
+async def handler_get_cow_names(request):
+    data = await cows_obj.get_names()
+    return web.json_response(data)
+
+@routes.get('/warnings')
+async def handler_get_warnings(request):
+    pass
+
+@routes.get('/meas/{cow}')
+async def handler_meas(request):
+    cow = request.match_info['cow']
+    if cow != 'all':
+        n_points = request.query['n'] if 'n' in request.query else 1
+        try:
+            data = await cows_obj.get_last_coords(cow, n_points, ui_format=True)
+            return web.json_response(data)
+        except Exception:
+            raise web.HTTPBadRequest()
+    else:
+        data = await cows_obj.get_current_pos_all_cows(ui_format=True)
+        return web.json_response(data)
+
+# async def redis_engine(app):
+#     app['redis'] = await aioredis.create_redis_pool(host, db=2)
+#     app['log'] = open(f'{port}.txt', 'a')
+#     yield
+#     app['redis'].close()
+#     await app['redis'].wait_closed()
+#     app['log'].close()
+
+
+async def web_start():
+    app.add_routes(routes)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    # site = web.TCPSite(runner, None, uri.port,  # type: ignore
+    #                        ssl_context=None if "ssl" not in context
+    #                        else context['ssl']
+
+    # app.cleanup_ctx.append(redis_engine)
+
+    site = web.TCPSite(runner)
+    await site.start()
 
 
 async def main():
@@ -52,8 +102,10 @@ async def main():
                 pg_conf['database']
                 )
 
+    await cows_obj.aioinit()
+
     await asyncio.gather(
-        hi_and_sleep(2),
+        web_start(),
         ttn_client.run_retry(topics)
     )
 

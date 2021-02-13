@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS trackers(
 -- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 CREATE TABLE IF NOT EXISTS cows(
     label               VARCHAR PRIMARY KEY,
-    name                VARCHAR NOT NULL,
+    name                VARCHAR NOT NULL UNIQUE,
     birthday            TIMESTAMP
 );
 
