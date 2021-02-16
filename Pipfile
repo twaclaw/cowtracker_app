@@ -10,6 +10,7 @@ pyyaml = "*"
 asyncio-mqtt = "*"
 ujson = "*"
 aiohttp = "*"
+geopy = "*"
 
 [dev-packages]
 autopep8 = "*"

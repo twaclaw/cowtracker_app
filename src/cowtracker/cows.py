@@ -1,11 +1,117 @@
-from asyncpg import Connection
+from asyncpg import Connection, Record
 from datetime import datetime, timezone
 from enum import Enum, auto
+from geopy.distance import distance as geodist
 import logging
 from typing import Any, Dict, List, Mapping, Optional
 from zoneinfo import ZoneInfo
 
 from cowtracker.db import connection
+
+
+class WarningType(Enum):
+    NO_MSG_RECV = "WARN_NO_MSGS_RECV"
+    BATT_LOW = "WARN_BATT_LOW"
+    COW_NOT_MOVING = "WARN_COW_NOT_MOVING"
+    COW_TOO_FAR = "WARN_COW_TOO_FAR"
+
+
+class WarningVariant(Enum):
+    WARNING = "warning"
+    DANGER = "danger"
+    INFO = "info"
+
+
+class Warning():
+    def __init__(self,
+                 code: WarningType,
+                 variant: WarningVariant,
+                 value: Optional[Any] = None):
+        self.code = code
+        self.variant = variant
+        self.value = value
+
+    def to_json(self):
+        return {
+            'code': self.code.value,
+            'variant': self.variant.value,
+            'value': self.value
+        }
+
+
+class PointRecord():
+    BATT_V_NORMAL = 3.6
+    BATT_V_WARN = 3.4
+    BATT_CAP_WARN = 90
+    REF_POS = (6.7346666, -72.7717729)  # antenna location
+    DIST_M_WARN = 1000
+    DIST_M_DANGER = 2000
+    TZ = "America/Bogota"
+
+    def __init__(self, record: Record):
+        self._data = record
+
+    @property
+    def localtime(self):
+        t = self._data['t']
+        return t.replace(timezone.utc).astimezone(tz=self.TZ)
+
+    @property
+    def timestamp(self):
+        t = self._data['t']
+        return t.timestamp()
+
+    def get_warnings(self) -> List[Warning]:
+        batt_V = self._data['batt_v']
+        batt_cap = self._data['batt_cap']
+        pos_ = self._data['pos']
+        pos = (pos_.x, pos_.y)
+
+        warns: List[Dict] = []
+        if (batt_V < self.BATT_V_NORMAL and batt_V > self.BATT_V_WARN) or\
+                (batt_cap < 100 and batt_cap > self.BATT_CAP_WARN):
+            w = Warning(WarningType.BATT_LOW, WarningVariant.WARNING, batt_V)
+            warns.append(w.to_json())
+
+        if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_WARN:
+            w = Warning(WarningType.BATT_LOW, WarningVariant.DANGER, batt_V)
+            warns.append(w.to_json())
+
+        dist2ref = geodist(pos, self.REF_POS).meters
+        if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
+            w = Warning(WarningType.COW_TOO_FAR,
+                        WarningVariant.WARNING, dist2ref)
+            warns.append(w.to_json())
+
+        if dist2ref > self.DIST_M_DANGER:
+            w = Warning(WarningType.COW_TOO_FAR,
+                        WarningVariant.DANGER, dist2ref)
+            warns.append(w.to_json())
+
+        return warns
+
+    def to_json(self,
+                name: Optional[str] = None,
+                include_warnings: Optional[bool] = True) -> Dict:
+        point: Dict = {}
+        for key, value in self._data.items():
+            if key == 'pos':
+                point[key] = {'lat': value.x, 'lon': value.y}
+            elif key == 't':
+                t = value
+                t = value.timestamp()
+                point[key] = t
+            elif key != 'id' and key != 'deveui':
+                point[key] = value
+
+        if name is not None:
+            point['name'] = name
+
+        if include_warnings:
+            warns = self.get_warnings()
+            point['warnings'] = warns
+
+        return point
 
 
 class DBException(Exception):
@@ -36,6 +142,7 @@ class Cows(metaclass=_Singleton):
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
         self.tz = ZoneInfo('America/Bogota')
+        self.warnings = {'cows': {}, 'general': []}
 
     async def aioinit(self):
         records = await Cows._map_names_to_deveuis()
@@ -52,53 +159,27 @@ class Cows(metaclass=_Singleton):
             await self.aioinit()
         return [x for x in self._mapping.keys()]
 
-    async def _get_last_coords_per_id(self,
-                                      conn: Connection,
-                                      deveui: int,
-                                      n_points: Optional[int] = 1,
-                                      to_local_tz: Optional[bool] = False,
-                                      ui_format: Optional[bool] = False
-                                      ) -> List[Dict[str, Any]]:
+    @staticmethod
+    async def _get_last_coords_per_id(
+        conn: Connection,
+        deveui: int,
+        n_points: Optional[int] = 1,
+    ) -> List[Dict[str, Any]]:
 
         sql = f'''
         SELECT * FROM meas WHERE deveui={deveui} 
         ORDER BY t DESC LIMIT {n_points};
         '''
         records = await conn.fetch(sql)
-        points: List[Dict[str, Any]] = []
+        points: List[PointRecord] = []
 
-        if len(records) > 0:
-            for r in records:
-                point: Dict[str, Any] = {}
-                for key, value in r.items():
-                    if key == 'pos':
-                        if ui_format:
-                            point[key] = {'lat': value.x, 'lon': value.y}
-                        else:
-                            point[key] = (value.x, value.y)
-                    elif key == 't':
-                        t = value
-                        if to_local_tz:
-                            t = value.replace(
-                                tzinfo=timezone.utc).astimezone(tz=self.tz)
-                        if ui_format:
-                            t = value.timestamp()
-                        point[key] = t
-                    elif key == 'id' or key == 'deveui':
-                        if not ui_format: # skip fields if consumed by UI
-                            point[key] = value 
-                    else:
-                        point[key] = value
-                
-                points.append(point)
-
+        for r in records:
+            points.append(PointRecord(r))
         return points
 
     async def get_last_coords(self,
                               name: str,
                               n_points: Optional[int] = 1,
-                              to_local_tz: Optional[bool] = False,
-                              ui_format: Optional[bool] = False
                               ) -> List[Dict[str, Any]]:
 
         if name not in self._mapping:
@@ -107,23 +188,19 @@ class Cows(metaclass=_Singleton):
 
         async with await connection() as conn:
             deveui = self._mapping[name]
-            return await self._get_last_coords_per_id(conn, deveui, n_points, to_local_tz, ui_format)
+            points = await Cows._get_last_coords_per_id(conn, deveui, n_points)
+            return [p.to_json(name=name) for p in points]
 
-    async def get_current_pos_all_cows(self,
-                                       to_local_tz: Optional[bool] = False,
-                                       ui_format: Optional[bool] = False
-                                       ) -> List[Dict[str, Any]]:
-
+    async def get_current_pos_all_cows(self) -> List[Dict[str, Any]]:
         points = []
         async with await connection() as conn:
             # TODO: check if there is a more efficient way
             for name in self._mapping:
                 deveui = self._mapping[name]
-                meas = await self._get_last_coords_per_id(conn, deveui, 1, to_local_tz, ui_format)
+                meas = await Cows._get_last_coords_per_id(conn, deveui, 1)
                 if len(meas) == 1:
-                    point = meas[0]
-                    point['name'] = name
-                    points.append(point)
+                    p = meas[0]
+                    points.append(p.to_json(name=name, include_warnings=True))
 
         return points
 

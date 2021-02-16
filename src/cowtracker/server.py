@@ -7,7 +7,7 @@ import os
 import ssl
 import yaml
 
-from cowtracker.db import conf_db_uri,  connection
+from cowtracker.db import conf_db_uri
 from cowtracker.ttn import TTNClient
 from cowtracker.cows import Cows
 
@@ -31,18 +31,17 @@ async def handler_get_cow_names(request):
 async def handler_get_warnings(request):
     pass
 
-@routes.get('/meas/{cow}')
+@routes.get('/meas/{name}')
 async def handler_meas(request):
-    cow = request.match_info['cow']
+    cow = request.match_info['name']
     if cow != 'all':
-        n_points = request.query['n'] if 'n' in request.query else 1
         try:
-            data = await cows_obj.get_last_coords(cow, n_points, ui_format=True)
+            data = await cows_obj.get_last_coords(cow, 10)
             return web.json_response(data)
         except Exception:
             raise web.HTTPBadRequest()
     else:
-        data = await cows_obj.get_current_pos_all_cows(ui_format=True)
+        data = await cows_obj.get_current_pos_all_cows()
         return web.json_response(data)
 
 # async def redis_engine(app):

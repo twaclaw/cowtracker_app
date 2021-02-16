@@ -21,7 +21,7 @@ class Message():
 
         try:
             try:
-                self.dev_eui = int(self.__data['end_device_ids']['dev_eui'], 16)
+                self.dev_eui = int(self.__data['end_device_ids']['dev_eui'], 16) & 0x1FF
             except Exception:
                 self.dev_eui = 0
             self.__uplink_message = self.__data['uplink_message']
@@ -139,7 +139,7 @@ class Message():
                 t,
                 pos,
                 accuracy,
-                batt_V,
+                batt_v,
                 batt_cap,
                 temp,
                 rssi,

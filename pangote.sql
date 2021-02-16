@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS meas(
     t                   TIMESTAMP NOT NULL,
     pos                 POINT NOT NULL,
     accuracy            INT NOT NULL,
-    batt_V              FLOAT,
+    batt_v              FLOAT,
     batt_cap            INT,
     temp                INT,
     rssi                FLOAT,
