@@ -22,7 +22,7 @@ cows_obj = Cows()
 # ------------------------------------------------------------
 # Application routes
 # ------------------------------------------------------------
-@routes.get('/names')
+@routes.get('/api/v1/names')
 async def handler_get_cow_names(request):
     data = await cows_obj.get_names()
     return web.json_response(data)
@@ -31,7 +31,7 @@ async def handler_get_cow_names(request):
 async def handler_get_warnings(request):
     pass
 
-@routes.get('/meas/{name}')
+@routes.get('/api/v1/meas/{name}')
 async def handler_meas(request):
     cow = request.match_info['name']
     if cow != 'all':

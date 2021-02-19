@@ -46,6 +46,8 @@ class PointRecord():
     REF_POS = (6.7346666, -72.7717729)  # antenna location
     DIST_M_WARN = 1000
     DIST_M_DANGER = 2000
+    TIME_S_WARN = 3600*4
+    TIME_S_DANGER = 3600*6
     TZ = "America/Bogota"
 
     def __init__(self, record: Record):
@@ -62,6 +64,7 @@ class PointRecord():
         return t.timestamp()
 
     def get_warnings(self) -> List[Warning]:
+        t = self._data['t']
         batt_V = self._data['batt_v']
         batt_cap = self._data['batt_cap']
         pos_ = self._data['pos']
@@ -80,12 +83,24 @@ class PointRecord():
         dist2ref = geodist(pos, self.REF_POS).meters
         if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
-                        WarningVariant.WARNING, dist2ref)
+                        WarningVariant.WARNING, int(dist2ref))
             warns.append(w.to_json())
 
         if dist2ref > self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
-                        WarningVariant.DANGER, dist2ref)
+                        WarningVariant.DANGER, int(dist2ref))
+            warns.append(w.to_json())
+
+        now = datetime.utcnow()
+        deltaT = now.timestamp() - t.timestamp()
+        if deltaT > self.TIME_S_WARN and deltaT < self.TIME_S_DANGER:
+            w = Warning(WarningType.NO_MSG_RECV,
+                        WarningVariant.WARNING, int(deltaT/3600))
+            warns.append(w.to_json())
+
+        if deltaT > self.TIME_S_DANGER:
+            w = Warning(WarningType.NO_MSG_RECV,
+                        WarningVariant.DANGER, int(deltaT/3600))
             warns.append(w.to_json())
 
         return warns
@@ -189,7 +204,12 @@ class Cows(metaclass=_Singleton):
         async with await connection() as conn:
             deveui = self._mapping[name]
             points = await Cows._get_last_coords_per_id(conn, deveui, n_points)
-            return [p.to_json(name=name) for p in points]
+            if len(points) > 0:
+                current_pos = points.pop(0).to_json(
+                    name=name, include_warnings=True)
+                return [current_pos] + [p.to_json(name=name, include_warnings=False) for p in points]
+            else:
+                return []
 
     async def get_current_pos_all_cows(self) -> List[Dict[str, Any]]:
         points = []

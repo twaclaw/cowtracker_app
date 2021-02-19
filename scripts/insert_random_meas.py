@@ -47,9 +47,10 @@ async def main():
 
     async with await connection() as conn:
         accuracy = random.randint(2, 8)
-        lat = random.uniform(6.71, 6.75)
-        lon = random.uniform(-72.76, -72.79)
+        lat = round(random.uniform(6.71, 6.75), 6)
+        lon = round(random.uniform(-72.76, -72.79), 6)
         pos = (lat, lon)
+        batt_cap = args.batt_cap - random.randint(0, 20)
 
         sql = f'''
             INSERT INTO meas
@@ -71,7 +72,7 @@ async def main():
                 '{pos}',
                 {accuracy},
                 3.6,
-                {args.batt_cap},
+                {batt_cap},
                 '20', 
                 '0',
                 '0'
