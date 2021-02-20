@@ -1,3 +1,4 @@
+import asyncio
 from asyncpg import Connection, Record
 from datetime import datetime, timezone
 from enum import Enum, auto
@@ -7,6 +8,8 @@ from typing import Any, Dict, List, Mapping, Optional
 from zoneinfo import ZoneInfo
 
 from cowtracker.db import connection
+
+logger = logging.getLogger("cows")
 
 
 class WarningType(Enum):
@@ -39,6 +42,20 @@ class Warning():
             'value': self.value
         }
 
+    def __repr__(self):
+        if self.code == WarningType.BATT_LOW:
+            return f"Batería baja: {self.value[0]}V ({self.value[1]}%)"
+
+        if self.code == WarningType.NO_MSG_RECV:
+            t = self.value
+            t.replace(timezone.utc).astimezone(
+                tz=self.TZ).strftime("%H:%M:%S %d-%m")
+
+            return f"No envía mensajes desde {t}"
+
+        if self.code == WarningType.COW_TOO_FAR:
+            return f"El animal está muy lejos, a {round(self.value, 1)}m del salineadero"
+
 
 class PointRecord():
     BATT_V_NORMAL = 3.6
@@ -66,41 +83,43 @@ class PointRecord():
         t = self._data['t']
         return t.timestamp()
 
-    def get_warnings(self) -> List[Warning]:
+    @property
+    def point(self):
+        pos_ = self._data['pos']
+        return (pos_.x, pos_.y)
+
+    def get_warnings(self, to_json: Optional[bool] = True) -> List[Warning]:
         t = self._data['t']
         batt_V = self._data['batt_v']
         batt_cap = self._data['batt_cap']
-        pos_ = self._data['pos']
-        pos = (pos_.x, pos_.y)
-
         warns: List[Dict] = []
         self.status = WarningVariant.INFO
-
-        # TODO: get last movement from global warnings
 
         # low battery warning
         if (batt_V < self.BATT_V_NORMAL and batt_V > self.BATT_V_WARN) or\
                 (batt_cap < self.BATT_CAP_WARN and batt_cap > self.BATT_CAP_DANGER):
-            w = Warning(WarningType.BATT_LOW, WarningVariant.WARNING, batt_V)
-            warns.append(w.to_json())
+            w = Warning(WarningType.BATT_LOW,
+                        WarningVariant.WARNING, (batt_V, batt_cap))
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
         if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_DANGER:
-            w = Warning(WarningType.BATT_LOW, WarningVariant.DANGER, batt_V)
-            warns.append(w.to_json())
+            w = Warning(WarningType.BATT_LOW,
+                        WarningVariant.DANGER, (batt_V, batt_cap))
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
-        dist2ref = geodist(pos, self.REF_POS).meters
+        dist2ref = geodist(self.point, self.REF_POS).meters
         if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
                         WarningVariant.WARNING, int(dist2ref))
-            warns.append(w.to_json())
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
         if dist2ref > self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
                         WarningVariant.DANGER, int(dist2ref))
-            warns.append(w.to_json())
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
         now = datetime.utcnow()
@@ -108,13 +127,13 @@ class PointRecord():
         if deltaT > self.TIME_S_WARN and deltaT < self.TIME_S_DANGER:
             w = Warning(WarningType.NO_MSG_RECV,
                         WarningVariant.WARNING, int(deltaT/3600))
-            warns.append(w.to_json())
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
         if deltaT > self.TIME_S_DANGER:
             w = Warning(WarningType.NO_MSG_RECV,
                         WarningVariant.DANGER, int(deltaT/3600))
-            warns.append(w.to_json())
+            warns.append(w.to_json() if to_json else w)
             self.status = WarningVariant.WARNING
 
         return warns
@@ -140,6 +159,7 @@ class PointRecord():
             warns = self.get_warnings()
             point['warnings'] = warns
             point['status'] = self.status.value
+            # TODO: get last movement from global warnings
 
         return point
 
@@ -169,6 +189,8 @@ class _Singleton(type):
 
 
 class Cows(metaclass=_Singleton):
+    CHECKUP_PERIOD_HOURS = 6
+
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
         self.tz = ZoneInfo('America/Bogota')
@@ -178,6 +200,46 @@ class Cows(metaclass=_Singleton):
         records = await Cows._map_names_to_deveuis()
         if len(records) > 0:
             self._mapping = {x['name']: x['deveui'] for x in records}
+
+        # start periodic task
+        loop = asyncio.get_event_loop()
+        loop.create_task(
+            self._periodic_checkup(self.CHECKUP_PERIOD_HOURS*3600))
+
+    async def _check_all_cows(self):
+        warnings = []
+        async with await connection() as conn:
+            for name in self._mapping:
+                deveui = self._mapping[name]
+                points = await Cows._get_last_coords_per_id(conn, deveui, 1)
+                cow = points[0]
+                warns = cow.get_warnings(to_json=False)
+                if len(warns) > 0:
+                    warnings.append((name, warns))
+
+        if len(warnings) == 0:
+            return
+
+        msg = "Las siguientes alarmas requieren revisión:\n"
+        for name, warns in warnings:
+            msg += f"{name}:\n"
+            for w in warns:
+                msg += f"- {w}\n"
+
+        logger.info(f"Warnings found in the periodic checkup {msg}")
+        logger.info("Sending email")
+        # TODO: send email
+
+    async def _periodic_checkup(self, period: int):
+        logger.info(f"scheduling periodic checkup with period {period}")
+        while True:
+            try:
+                logger.info("Running periodic checkup")
+                await self._check_all_cows()
+            except Exception:
+                logger.exception("Error while running periodic checkup")
+
+            await asyncio.sleep(self.CHECKUP_PERIOD_HOURS)
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
