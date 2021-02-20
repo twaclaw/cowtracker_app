@@ -47,8 +47,8 @@ async def main():
 
     async with await connection() as conn:
         accuracy = random.randint(2, 8)
-        lat = round(random.uniform(6.71, 6.75), 6)
-        lon = round(random.uniform(-72.76, -72.79), 6)
+        lat = round(random.uniform(6.734, 6.735), 6)
+        lon = round(random.uniform(-72.77, -72.773), 6)
         pos = (lat, lon)
         batt_cap = args.batt_cap - random.randint(0, 20)
 

@@ -20,6 +20,7 @@ class WarningVariant(Enum):
     WARNING = "warning"
     DANGER = "danger"
     INFO = "info"
+    NONE = ""
 
 
 class Warning():
@@ -43,6 +44,7 @@ class PointRecord():
     BATT_V_NORMAL = 3.6
     BATT_V_WARN = 3.4
     BATT_CAP_WARN = 90
+    BATT_CAP_DANGER = 80
     REF_POS = (6.7346666, -72.7717729)  # antenna location
     DIST_M_WARN = 1000
     DIST_M_DANGER = 2000
@@ -52,6 +54,7 @@ class PointRecord():
 
     def __init__(self, record: Record):
         self._data = record
+        self.status = WarningVariant.NONE
 
     @property
     def localtime(self):
@@ -71,25 +74,34 @@ class PointRecord():
         pos = (pos_.x, pos_.y)
 
         warns: List[Dict] = []
+        self.status = WarningVariant.INFO
+
+        # TODO: get last movement from global warnings
+
+        # low battery warning
         if (batt_V < self.BATT_V_NORMAL and batt_V > self.BATT_V_WARN) or\
-                (batt_cap < 100 and batt_cap > self.BATT_CAP_WARN):
+                (batt_cap < self.BATT_CAP_WARN and batt_cap > self.BATT_CAP_DANGER):
             w = Warning(WarningType.BATT_LOW, WarningVariant.WARNING, batt_V)
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
-        if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_WARN:
+        if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_DANGER:
             w = Warning(WarningType.BATT_LOW, WarningVariant.DANGER, batt_V)
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
         dist2ref = geodist(pos, self.REF_POS).meters
         if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
                         WarningVariant.WARNING, int(dist2ref))
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
         if dist2ref > self.DIST_M_DANGER:
             w = Warning(WarningType.COW_TOO_FAR,
                         WarningVariant.DANGER, int(dist2ref))
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
@@ -97,11 +109,13 @@ class PointRecord():
             w = Warning(WarningType.NO_MSG_RECV,
                         WarningVariant.WARNING, int(deltaT/3600))
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
         if deltaT > self.TIME_S_DANGER:
             w = Warning(WarningType.NO_MSG_RECV,
                         WarningVariant.DANGER, int(deltaT/3600))
             warns.append(w.to_json())
+            self.status = WarningVariant.WARNING
 
         return warns
 
@@ -125,6 +139,7 @@ class PointRecord():
         if include_warnings:
             warns = self.get_warnings()
             point['warnings'] = warns
+            point['status'] = self.status.value
 
         return point
 
