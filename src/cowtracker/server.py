@@ -10,6 +10,7 @@ import yaml
 from cowtracker.db import conf_db_uri
 from cowtracker.ttn import TTNClient
 from cowtracker.cows import Cows
+from cowtracker.email import Email
 
 logger = logging.getLogger('server')
 
@@ -101,7 +102,9 @@ async def main():
                 pg_conf['database']
                 )
 
-    await cows_obj.aioinit()
+    email_conf = config['email']
+    email_sender = Email(email_conf)
+    await cows_obj.aioinit(email_sender)
 
     await asyncio.gather(
         web_start(),

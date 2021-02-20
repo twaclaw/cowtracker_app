@@ -8,28 +8,29 @@ from typing import Any, Dict, List, Mapping, Optional
 from zoneinfo import ZoneInfo
 
 from cowtracker.db import connection
+from cowtracker.email import Email
 
 logger = logging.getLogger("cows")
 
 
-class WarningType(Enum):
+class _WarningType(Enum):
     NO_MSG_RECV = "WARN_NO_MSGS_RECV"
     BATT_LOW = "WARN_BATT_LOW"
     COW_NOT_MOVING = "WARN_COW_NOT_MOVING"
     COW_TOO_FAR = "WARN_COW_TOO_FAR"
 
 
-class WarningVariant(Enum):
+class _WarningVariant(Enum):
     WARNING = "warning"
     DANGER = "danger"
     INFO = "info"
     NONE = ""
 
 
-class Warning():
+class _Warning():
     def __init__(self,
-                 code: WarningType,
-                 variant: WarningVariant,
+                 code: _WarningType,
+                 variant: _WarningVariant,
                  value: Optional[Any] = None):
         self.code = code
         self.variant = variant
@@ -43,21 +44,21 @@ class Warning():
         }
 
     def __repr__(self):
-        if self.code == WarningType.BATT_LOW:
+        if self.code == _WarningType.BATT_LOW:
             return f"Batería baja: {self.value[0]}V ({self.value[1]}%)"
 
-        if self.code == WarningType.NO_MSG_RECV:
+        if self.code == _WarningType.NO_MSG_RECV:
             t = self.value
             t.replace(timezone.utc).astimezone(
                 tz=self.TZ).strftime("%H:%M:%S %d-%m")
 
             return f"No envía mensajes desde {t}"
 
-        if self.code == WarningType.COW_TOO_FAR:
+        if self.code == _WarningType.COW_TOO_FAR:
             return f"El animal está muy lejos, a {round(self.value, 1)}m del salineadero"
 
 
-class PointRecord():
+class _PointRecord():
     BATT_V_NORMAL = 3.6
     BATT_V_WARN = 3.4
     BATT_CAP_WARN = 90
@@ -71,7 +72,7 @@ class PointRecord():
 
     def __init__(self, record: Record):
         self._data = record
-        self.status = WarningVariant.NONE
+        self.status = _WarningVariant.NONE
 
     @property
     def localtime(self):
@@ -88,53 +89,53 @@ class PointRecord():
         pos_ = self._data['pos']
         return (pos_.x, pos_.y)
 
-    def get_warnings(self, to_json: Optional[bool] = True) -> List[Warning]:
+    def get_warnings(self, to_json: Optional[bool] = True) -> List[_Warning]:
         t = self._data['t']
         batt_V = self._data['batt_v']
         batt_cap = self._data['batt_cap']
         warns: List[Dict] = []
-        self.status = WarningVariant.INFO
+        self.status = _WarningVariant.INFO
 
         # low battery warning
         if (batt_V < self.BATT_V_NORMAL and batt_V > self.BATT_V_WARN) or\
                 (batt_cap < self.BATT_CAP_WARN and batt_cap > self.BATT_CAP_DANGER):
-            w = Warning(WarningType.BATT_LOW,
-                        WarningVariant.WARNING, (batt_V, batt_cap))
+            w = _Warning(_WarningType.BATT_LOW,
+                         _WarningVariant.WARNING, (batt_V, batt_cap))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_DANGER:
-            w = Warning(WarningType.BATT_LOW,
-                        WarningVariant.DANGER, (batt_V, batt_cap))
+            w = _Warning(_WarningType.BATT_LOW,
+                         _WarningVariant.DANGER, (batt_V, batt_cap))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         dist2ref = geodist(self.point, self.REF_POS).meters
         if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
-            w = Warning(WarningType.COW_TOO_FAR,
-                        WarningVariant.WARNING, int(dist2ref))
+            w = _Warning(_WarningType.COW_TOO_FAR,
+                         _WarningVariant.WARNING, int(dist2ref))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         if dist2ref > self.DIST_M_DANGER:
-            w = Warning(WarningType.COW_TOO_FAR,
-                        WarningVariant.DANGER, int(dist2ref))
+            w = _Warning(_WarningType.COW_TOO_FAR,
+                         _WarningVariant.DANGER, int(dist2ref))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
         if deltaT > self.TIME_S_WARN and deltaT < self.TIME_S_DANGER:
-            w = Warning(WarningType.NO_MSG_RECV,
-                        WarningVariant.WARNING, int(deltaT/3600))
+            w = _Warning(_WarningType.NO_MSG_RECV,
+                         _WarningVariant.WARNING, int(deltaT/3600))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         if deltaT > self.TIME_S_DANGER:
-            w = Warning(WarningType.NO_MSG_RECV,
-                        WarningVariant.DANGER, int(deltaT/3600))
+            w = _Warning(_WarningType.NO_MSG_RECV,
+                         _WarningVariant.DANGER, int(deltaT/3600))
             warns.append(w.to_json() if to_json else w)
-            self.status = WarningVariant.WARNING
+            self.status = _WarningVariant.WARNING
 
         return warns
 
@@ -195,8 +196,10 @@ class Cows(metaclass=_Singleton):
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
         self.warnings = {'cows': {}, 'general': []}
+        self.email_sender: Optional[Email] = None
 
-    async def aioinit(self):
+    async def aioinit(self, email_sender: Email):
+        self.email_sender = email_sender
         records = await Cows._map_names_to_deveuis()
         if len(records) > 0:
             self._mapping = {x['name']: x['deveui'] for x in records}
@@ -225,9 +228,11 @@ class Cows(metaclass=_Singleton):
 
         now = datetime.utcnow().timestamp()
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
-            logger.info("Possible gateway error, no message received since: {last_msg_date}")
+            logger.info(
+                "Possible gateway error, no message received since: {last_msg_date}")
             msg = f"Ningún mensaje recibido desde: {last_msg_date.strftime('%H:%M %d-%m')}"
-            #TODO send email
+            self.email_sender.send_email(
+                "[REVISAR] No se están recibiendo mensajes", msg)
             return
 
         if len(warnings) == 0:
@@ -239,9 +244,9 @@ class Cows(metaclass=_Singleton):
             for w in warns:
                 msg += f"- {w}\n"
 
-        logger.info(f"Warnings found in the periodic checkup {msg}")
+        logger.info(f"_Warnings found in the periodic checkup {msg}")
         logger.info("Sending email")
-        # TODO: send email
+        self.email_sender.send_email("[REVISAR] Alarmas", msg)
 
     async def _periodic_checkup(self, period: int):
         logger.info(f"scheduling periodic checkup with period {period}")
@@ -276,10 +281,10 @@ class Cows(metaclass=_Singleton):
         ORDER BY t DESC LIMIT {n_points};
         '''
         records = await conn.fetch(sql)
-        points: List[PointRecord] = []
+        points: List[_PointRecord] = []
 
         for r in records:
-            points.append(PointRecord(r))
+            points.append(_PointRecord(r))
         return points
 
     async def get_last_coords(self,
