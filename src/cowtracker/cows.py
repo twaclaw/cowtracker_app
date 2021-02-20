@@ -67,7 +67,7 @@ class PointRecord():
     DIST_M_DANGER = 2000
     TIME_S_WARN = 3600*4
     TIME_S_DANGER = 3600*6
-    TZ = "America/Bogota"
+    TZ = ZoneInfo('America/Bogota')
 
     def __init__(self, record: Record):
         self._data = record
@@ -76,7 +76,7 @@ class PointRecord():
     @property
     def localtime(self):
         t = self._data['t']
-        return t.replace(timezone.utc).astimezone(tz=self.TZ)
+        return t.replace(tzinfo=timezone.utc).astimezone(tz=self.TZ)
 
     @property
     def timestamp(self):
@@ -190,10 +190,10 @@ class _Singleton(type):
 
 class Cows(metaclass=_Singleton):
     CHECKUP_PERIOD_HOURS = 6
+    LAST_MSG_TIME_S_WARN = 3600*3
 
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
-        self.tz = ZoneInfo('America/Bogota')
         self.warnings = {'cows': {}, 'general': []}
 
     async def aioinit(self):
@@ -208,14 +208,27 @@ class Cows(metaclass=_Singleton):
 
     async def _check_all_cows(self):
         warnings = []
+        last_msg_received = 0
+        last_msg_date = None
         async with await connection() as conn:
             for name in self._mapping:
                 deveui = self._mapping[name]
                 points = await Cows._get_last_coords_per_id(conn, deveui, 1)
-                cow = points[0]
-                warns = cow.get_warnings(to_json=False)
+                record = points[0]
+                if record.timestamp > last_msg_received:
+                    last_msg_received = record.timestamp
+                    last_msg_date = record.localtime
+
+                warns = record.get_warnings(to_json=False)
                 if len(warns) > 0:
                     warnings.append((name, warns))
+
+        now = datetime.utcnow().timestamp()
+        if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
+            logger.info("Possible gateway error, no message received since: {last_msg_date}")
+            msg = f"Ningún mensaje recibido desde: {last_msg_date.strftime('%H:%M %d-%m')}"
+            #TODO send email
+            return
 
         if len(warnings) == 0:
             return
@@ -239,7 +252,7 @@ class Cows(metaclass=_Singleton):
             except Exception:
                 logger.exception("Error while running periodic checkup")
 
-            await asyncio.sleep(self.CHECKUP_PERIOD_HOURS)
+            await asyncio.sleep(period)
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
