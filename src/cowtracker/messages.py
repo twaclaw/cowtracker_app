@@ -4,9 +4,13 @@ from enum import Enum, auto
 import logging
 from typing import Dict, List
 
-from cowtracker.db import  connection, pg_str
+from cowtracker.db import connection, pg_str
+from cowtracker.cows import Cows
+
 
 logger = logging.getLogger('messages')
+
+cows = Cows()  # global singleton
 
 
 class MessageStatus(Enum):
@@ -21,7 +25,8 @@ class Message():
 
         try:
             try:
-                self.dev_eui = int(self.__data['end_device_ids']['dev_eui'], 16) & 0x1FF
+                self.dev_eui = int(
+                    self.__data['end_device_ids']['dev_eui'], 16) & 0x1FF
             except Exception:
                 self.dev_eui = 0
             self.__uplink_message = self.__data['uplink_message']
@@ -159,3 +164,4 @@ class Message():
             );
             '''
             await conn.execute(sql)
+            await cows.check_cow_movement(self.dev_eui)

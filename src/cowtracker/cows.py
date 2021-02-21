@@ -1,6 +1,6 @@
 import asyncio
 from asyncpg import Connection, Record
-from datetime import datetime, timezone
+from datetime import datetime, tzinfo
 from enum import Enum, auto
 from geopy.distance import distance as geodist
 import logging
@@ -84,8 +84,7 @@ class _Warning():
 
         if self.code == _WarningType.NO_MSG_RECV:
             t = self.value
-            t.replace(timezone.utc).astimezone(
-                tz=_TZ).strftime("%H:%M:%S %d-%m")
+            t.replace(tzinfo=_TZ).strftime("%H:%M:%S %d-%m")
 
             return f"No envía mensajes desde {t}"
 
@@ -101,7 +100,7 @@ class _PointRecord():
     @property
     def localtime(self):
         t = self._data['t']
-        return t.replace(tzinfo=timezone.utc).astimezone(tz=_TZ)
+        return t.astimezone(tz=_TZ)
 
     @property
     def timestamp(self):
@@ -112,6 +111,10 @@ class _PointRecord():
     def point(self):
         pos_ = self._data['pos']
         return (pos_.x, pos_.y)
+
+    @property
+    def accuracy(self):
+        return self._data['accuracy']
 
     def get_warnings(self, to_json: Optional[bool] = True) -> List[_Warning]:
         t = self._data['t']
@@ -134,6 +137,7 @@ class _PointRecord():
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
+        # check if cow is too far away from reference point
         dist2ref = geodist(self.point, _REF_POS).meters
         if dist2ref > _DIST_M_WARN and dist2ref < _DIST_M_DANGER:
             w = _Warning(_WarningType.COW_TOO_FAR,
@@ -147,6 +151,7 @@ class _PointRecord():
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
+        # check if device is not sending data
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
         if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
@@ -165,7 +170,8 @@ class _PointRecord():
 
     def to_json(self,
                 name: Optional[str] = None,
-                include_warnings: Optional[bool] = True) -> Dict:
+                include_warnings: Optional[bool] = True,
+                no_mov_warn: Optional[_Warning] = None) -> Dict:
         point: Dict = {}
         for key, value in self._data.items():
             if key == 'pos':
@@ -182,9 +188,12 @@ class _PointRecord():
 
         if include_warnings:
             warns = self.get_warnings()
-            point['warnings'] = warns
+            if no_mov_warn:
+                self.status = _WarningVariant.DANGER
+                warns.append(no_mov_warn)
+
             point['status'] = self.status.value
-            # TODO: get last movement from global warnings
+            point['warnings'] = warns
 
         return point
 
@@ -219,18 +228,26 @@ class Cows(metaclass=_Singleton):
 
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
+        self._mapping_by_deveui: Optional[Mapping[str, int]] = None
         self.email_sender: Optional[Email] = None
+        self.cows_not_moving: Dict[str, _Warning] = {}
 
     async def aioinit(self, email_sender: Email):
         self.email_sender = email_sender
         records = await Cows._map_names_to_deveuis()
         if len(records) > 0:
             self._mapping = {x['name']: x['deveui'] for x in records}
+            self._mapping_by_deveui = {x['deveui']: x['name'] for x in records}
 
         # start periodic task
         loop = asyncio.get_event_loop()
         loop.create_task(
             self._periodic_checkup(self.CHECKUP_PERIOD_HOURS*3600))
+
+    @staticmethod
+    def _get_localtime() -> datetime:
+        now = datetime.utcnow()
+        return now.astimezone(tz=_TZ)
 
     async def _check_all_cows(self):
         warnings = []
@@ -253,7 +270,7 @@ class Cows(metaclass=_Singleton):
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
             logger.info(
                 "Possible gateway error, no message received since: {last_msg_date}")
-            msg = f"Ningún mensaje recibido desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
+            msg = f"Ningún mensaje recibido desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
             self.email_sender.send_email(
                 "[REVISAR] No se están recibiendo mensajes", msg)
             return
@@ -267,7 +284,7 @@ class Cows(metaclass=_Singleton):
             for w in warns:
                 msg += f"- {w}\n"
 
-        logger.info(f"_Warnings found in the periodic checkup {msg}")
+        logger.info(f"Warnings found in the periodic checkup {msg}")
         logger.info("Sending email")
         self.email_sender.send_email("[REVISAR] Alarmas", msg)
 
@@ -281,6 +298,55 @@ class Cows(metaclass=_Singleton):
                 logger.exception("Error while running periodic checkup")
 
             await asyncio.sleep(period)
+
+    @staticmethod
+    def _is_same_pos(p1: _PointRecord, p2: _PointRecord) -> bool:
+        """ Checks if two points are approximately the same
+        """
+        acc = max(p1.accuracy, p2.accuracy)  # takes the largest accuracy
+        delta = geodist(p1.point, p2.point).meters
+        return delta > 2*acc
+
+    async def check_cow_movement(self, deveui: int):
+        """ Check if a cow is moving
+
+        This function is called whenever a new record is stored to the database
+        """
+        now = self._get_localtime()
+        # Skip during the night
+        if now.hour < 8 and now.hour > 20:
+            return
+
+        async with await connection() as conn:
+            points = await self._get_last_coords_per_id(conn, deveui, 20)
+
+        n_points = len(points)
+        if n_points > 3:
+            p0 = points[0]
+            p1 = points[1]
+            p2 = points[2]
+
+            # if current position is the same as  previous two
+            if self._is_same_pos(p0, p1) and self._is_same_pos(p0, p2):
+                logger.info(
+                    f"Current position is the same as previous two p[0]: {p0.point}, p[-1]: {p1.point}, p[-2]: {p2.point}")
+
+                i = 3
+                p = points[i]
+                while i < n_points and self._is_same_pos(p0, p):
+                    p = points[i]
+                    i += 1
+
+                name = self._mapping_by_deveui[deveui]
+                last_msg_date = p.localtime
+
+                self.cows_not_moving[name] = _Warning(
+                    _WarningType.COW_NOT_MOVING, _WarningVariant.DANGER, p.timestamp)
+
+                logger.info(f"{name} not moving since {last_msg_date}")
+                msg = f"{name} no se mueve  al menos desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
+                self.email_sender.send_email(
+                    "[URGENTE] {name} no se está moviendo!", msg)
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
@@ -338,7 +404,9 @@ class Cows(metaclass=_Singleton):
                 meas = await Cows._get_last_coords_per_id(conn, deveui, 1)
                 if len(meas) == 1:
                     p = meas[0]
-                    points.append(p.to_json(name=name, include_warnings=True))
+                    no_mov_warn = self.cows_not_moving[name] if name in self.cows_not_moving else None
+                    points.append(
+                        p.to_json(name=name, no_mov_warn=no_mov_warn))
 
         return points
 
