@@ -12,6 +12,41 @@ from cowtracker.email import Email
 
 logger = logging.getLogger("cows")
 
+# global variables
+
+_BATT_V_NORMAL = None
+_BATT_V_WARN = None
+_BATT_CAP_WARN = None
+_BATT_CAP_DANGER = None
+_REF_POS = None
+_DIST_M_WARN = None
+_DIST_M_DANGER = None
+_TIME_S_WARN = None
+_TIME_S_DANGER = None
+_TZ = ZoneInfo('America/Bogota')
+
+
+def set_warn_levels(warn_levels):
+    global _BATT_V_NORMAL
+    global _BATT_V_WARN
+    global _BATT_CAP_WARN
+    global _BATT_CAP_DANGER
+    global _REF_POS
+    global _DIST_M_WARN
+    global _DIST_M_DANGER
+    global _TIME_S_WARN
+    global _TIME_S_DANGER
+
+    _BATT_V_NORMAL = warn_levels['batt_v_normal']
+    _BATT_V_WARN = warn_levels['batt_v_warn']
+    _BATT_CAP_WARN = warn_levels['batt_cap_warn']
+    _BATT_CAP_DANGER = warn_levels['batt_cap_danger']
+    _REF_POS = warn_levels['ref_pos']
+    _DIST_M_WARN = warn_levels['dist_m_warn']
+    _DIST_M_DANGER = warn_levels['dist_m_danger']
+    _TIME_S_WARN = 3600*warn_levels['time_h_warn']
+    _TIME_S_DANGER = 3600*warn_levels['time_h_danger']
+
 
 class _WarningType(Enum):
     NO_MSG_RECV = "WARN_NO_MSGS_RECV"
@@ -50,7 +85,7 @@ class _Warning():
         if self.code == _WarningType.NO_MSG_RECV:
             t = self.value
             t.replace(timezone.utc).astimezone(
-                tz=self.TZ).strftime("%H:%M:%S %d-%m")
+                tz=_TZ).strftime("%H:%M:%S %d-%m")
 
             return f"No envía mensajes desde {t}"
 
@@ -59,17 +94,6 @@ class _Warning():
 
 
 class _PointRecord():
-    BATT_V_NORMAL = 3.6
-    BATT_V_WARN = 3.4
-    BATT_CAP_WARN = 90
-    BATT_CAP_DANGER = 80
-    REF_POS = (6.7346666, -72.7717729)  # antenna location
-    DIST_M_WARN = 1000
-    DIST_M_DANGER = 2000
-    TIME_S_WARN = 3600*4
-    TIME_S_DANGER = 3600*6
-    TZ = ZoneInfo('America/Bogota')
-
     def __init__(self, record: Record):
         self._data = record
         self.status = _WarningVariant.NONE
@@ -77,7 +101,7 @@ class _PointRecord():
     @property
     def localtime(self):
         t = self._data['t']
-        return t.replace(tzinfo=timezone.utc).astimezone(tz=self.TZ)
+        return t.replace(tzinfo=timezone.utc).astimezone(tz=_TZ)
 
     @property
     def timestamp(self):
@@ -97,27 +121,27 @@ class _PointRecord():
         self.status = _WarningVariant.INFO
 
         # low battery warning
-        if (batt_V < self.BATT_V_NORMAL and batt_V > self.BATT_V_WARN) or\
-                (batt_cap < self.BATT_CAP_WARN and batt_cap > self.BATT_CAP_DANGER):
+        if (batt_V < _BATT_V_NORMAL and batt_V > _BATT_V_WARN) or\
+                (batt_cap < _BATT_CAP_WARN and batt_cap > _BATT_CAP_DANGER):
             w = _Warning(_WarningType.BATT_LOW,
                          _WarningVariant.WARNING, (batt_V, batt_cap))
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        if batt_V < self.BATT_V_WARN or batt_cap < self.BATT_CAP_DANGER:
+        if batt_V < _BATT_V_WARN or batt_cap < _BATT_CAP_DANGER:
             w = _Warning(_WarningType.BATT_LOW,
                          _WarningVariant.DANGER, (batt_V, batt_cap))
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        dist2ref = geodist(self.point, self.REF_POS).meters
-        if dist2ref > self.DIST_M_WARN and dist2ref < self.DIST_M_DANGER:
+        dist2ref = geodist(self.point, _REF_POS).meters
+        if dist2ref > _DIST_M_WARN and dist2ref < _DIST_M_DANGER:
             w = _Warning(_WarningType.COW_TOO_FAR,
                          _WarningVariant.WARNING, int(dist2ref))
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        if dist2ref > self.DIST_M_DANGER:
+        if dist2ref > _DIST_M_DANGER:
             w = _Warning(_WarningType.COW_TOO_FAR,
                          _WarningVariant.DANGER, int(dist2ref))
             warns.append(w.to_json() if to_json else w)
@@ -125,13 +149,13 @@ class _PointRecord():
 
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
-        if deltaT > self.TIME_S_WARN and deltaT < self.TIME_S_DANGER:
+        if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
             w = _Warning(_WarningType.NO_MSG_RECV,
                          _WarningVariant.WARNING, int(deltaT/3600))
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        if deltaT > self.TIME_S_DANGER:
+        if deltaT > _TIME_S_DANGER:
             w = _Warning(_WarningType.NO_MSG_RECV,
                          _WarningVariant.DANGER, int(deltaT/3600))
             warns.append(w.to_json() if to_json else w)
@@ -195,7 +219,6 @@ class Cows(metaclass=_Singleton):
 
     def __init__(self):
         self._mapping: Optional[Mapping[str, int]] = None
-        self.warnings = {'cows': {}, 'general': []}
         self.email_sender: Optional[Email] = None
 
     async def aioinit(self, email_sender: Email):
@@ -230,7 +253,7 @@ class Cows(metaclass=_Singleton):
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
             logger.info(
                 "Possible gateway error, no message received since: {last_msg_date}")
-            msg = f"Ningún mensaje recibido desde: {last_msg_date.strftime('%H:%M %d-%m')}"
+            msg = f"Ningún mensaje recibido desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
             self.email_sender.send_email(
                 "[REVISAR] No se están recibiendo mensajes", msg)
             return

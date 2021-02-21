@@ -9,7 +9,7 @@ import yaml
 
 from cowtracker.db import conf_db_uri
 from cowtracker.ttn import TTNClient
-from cowtracker.cows import Cows
+from cowtracker.cows import Cows, set_warn_levels
 from cowtracker.email import Email
 
 logger = logging.getLogger('server')
@@ -101,6 +101,8 @@ async def main():
                 pg_conf['port'],
                 pg_conf['database']
                 )
+
+    set_warn_levels(config['warnings'])
 
     email_conf = config['email']
     email_sender = Email(email_conf)
