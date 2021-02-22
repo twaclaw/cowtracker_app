@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS meas(
 
 -- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 CREATE TABLE IF NOT EXISTS trackers(
-    devui               INT NOT NULL PRIMARY KEY,
+    deveui               INT NOT NULL PRIMARY KEY,
     label               VARCHAR NOT NULL
 );
 
