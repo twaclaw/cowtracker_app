@@ -90,10 +90,10 @@ async def main():
 
     lns_config = config['lns']
 
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.load_verify_locations('./tc.trust')
+    # context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    # context.load_verify_locations('./tc.trust')
     topics = (f"v3/{lns_config['appid']}/devices/+/up",)
-    ttn_client = TTNClient(lns_config, context)
+    ttn_client = TTNClient(lns_config, None)
 
     pg_conf = config['postgres']
 
