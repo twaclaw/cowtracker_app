@@ -233,13 +233,16 @@ class Cows(metaclass=_Singleton):
         self.email_sender: Optional[Email] = None
         self.cows_not_moving: Dict[str, _Warning] = {}
 
-    async def aioinit(self, email_sender: Email):
-        self.email_sender = email_sender
+    async def _create_name_deveui_mapping(self):
         records = await Cows._map_names_to_deveuis()
         if len(records) > 0:
             self._mapping = {x['name']: x['deveui'] for x in records}
             self._mapping_by_deveui = {x['deveui']: x['name'] for x in records}
 
+
+    async def aioinit(self, email_sender: Email):
+        self.email_sender = email_sender
+        await self._create_name_deveui_mapping()
         # start periodic task
         loop = asyncio.get_event_loop()
         loop.create_task(
@@ -351,12 +354,12 @@ class Cows(metaclass=_Singleton):
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
-            await self.aioinit()
+            await self._create_name_deveui_mapping()
         return self._mapping
 
     async def get_names(self) -> List[str]:
         if self._mapping is None:
-            await self.aioinit()
+            await self._create_name_deveui_mapping()
         return [x for x in self._mapping.keys()]
 
     @staticmethod
