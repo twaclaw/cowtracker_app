@@ -1,0 +1,58 @@
+lns_config:
+  host: @TTN_SERVER@
+  port: 1883
+  appid: @TTN-APPID@
+  appkey: @TTN-APPKEY@
+
+postgres:
+  database: @PS_DATABASE@
+  user: @PS_USER@
+  host: @PS_HOST@
+  port: 5432
+
+email:
+  smtp_server: @SMTP_SERVER@
+  port: 587
+  user: @EMAIL_USER@
+  password: @EMAIL_PASSWORD@
+  to:
+    -
+
+warnings:
+  batt_v_normal: 3.6
+  batt_v_warn: 3.4
+  batt_cap_warn: 90
+  batt_cap_danger: 80
+  ref_pos: [@lat@, @lon@]
+  dist_m_warn: 1000
+  dist_m_danger: 2000
+  time_h_warn: 4
+  time_h_danger: 6
+
+logger:
+  version: 1
+  disable_existing_loggers: False
+
+  formatters:
+    csfmt:
+      format:  "[%(asctime)s] %(levelname)-5s %(name)-5s %(funcName)-5s %(message)s"
+      datefmt: "%d-%m-%Y %H:%M:%S"
+
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: DEBUG
+      formatter: csfmt
+      stream: ext://sys.stdout
+
+    filerot:
+      class: logging.handlers.TimedRotatingFileHandler
+      level: INFO
+      formatter: csfmt
+      filename: /home/ubuntu/logs/cowtracker.log
+      backupCount: 10
+      when: midnight
+
+  root:
+    level: DEBUG
+    handlers: [console, filerot]

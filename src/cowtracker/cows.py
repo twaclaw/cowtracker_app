@@ -269,7 +269,7 @@ class Cows(metaclass=_Singleton):
         now = datetime.utcnow().timestamp()
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
             logger.info(
-                "Possible gateway error, no message received since: {last_msg_date}")
+                f"Possible gateway error, no message received since: {last_msg_date}")
             msg = f"Ningún mensaje recibido desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
             self.email_sender.send_email(
                 "[REVISAR] No se están recibiendo mensajes", msg)

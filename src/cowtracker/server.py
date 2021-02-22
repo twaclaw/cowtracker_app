@@ -2,6 +2,7 @@ from aiohttp import web
 import argparse
 import asyncio
 import logging
+import logging.config
 from pathlib import Path
 import os
 import ssl
@@ -101,6 +102,12 @@ async def main():
                 pg_conf['port'],
                 pg_conf['database']
                 )
+
+    try:
+        logging.config.dictConfig(config['logger'])
+    except Exception as ex:
+        print("Invalid logging configuration")
+        raise ex
 
     set_warn_levels(config['warnings'])
 
