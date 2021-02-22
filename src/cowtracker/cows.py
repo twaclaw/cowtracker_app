@@ -257,6 +257,9 @@ class Cows(metaclass=_Singleton):
         warnings = []
         last_msg_received = 0
         last_msg_date = None
+        if self._mapping is None:
+            await self._create_name_deveui_mapping()
+
         async with await connection() as conn:
             for name in self._mapping:
                 deveui = self._mapping[name]
