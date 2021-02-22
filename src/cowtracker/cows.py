@@ -4,8 +4,9 @@ from datetime import datetime, tzinfo
 from enum import Enum, auto
 from geopy.distance import distance as geodist
 import logging
+from pytz import timezone
 from typing import Any, Dict, List, Mapping, Optional
-from zoneinfo import ZoneInfo
+
 
 from cowtracker.db import connection
 from cowtracker.email import Email
@@ -23,7 +24,7 @@ _DIST_M_WARN = None
 _DIST_M_DANGER = None
 _TIME_S_WARN = None
 _TIME_S_DANGER = None
-_TZ = ZoneInfo('America/Bogota')
+_TZ = timezone('America/Bogota')
 
 
 def set_warn_levels(warn_levels):
@@ -83,8 +84,8 @@ class _Warning():
             return f"Batería baja: {self.value[0]}V ({self.value[1]}%)"
 
         if self.code == _WarningType.NO_MSG_RECV:
-            t = self.value
-            t.replace(tzinfo=_TZ).strftime("%H:%M:%S %d-%m")
+            t: datetime = self.value
+            t.astimezone(_TZ).strftime("%H:%M:%S %d-%m")
 
             return f"No envía mensajes desde {t}"
 
@@ -99,8 +100,8 @@ class _PointRecord():
 
     @property
     def localtime(self):
-        t = self._data['t']
-        return t.astimezone(tz=_TZ)
+        t: datetime = self._data['t']
+        return t.astimezone(_TZ)
 
     @property
     def timestamp(self):
@@ -247,7 +248,7 @@ class Cows(metaclass=_Singleton):
     @staticmethod
     def _get_localtime() -> datetime:
         now = datetime.utcnow()
-        return now.astimezone(tz=_TZ)
+        return now.astimezone(_TZ)
 
     async def _check_all_cows(self):
         warnings = []

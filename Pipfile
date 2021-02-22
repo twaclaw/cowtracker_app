@@ -11,6 +11,7 @@ asyncio-mqtt = "*"
 ujson = "*"
 aiohttp = "*"
 geopy = "*"
+pytz = "*"
 
 [dev-packages]
 autopep8 = "*"
