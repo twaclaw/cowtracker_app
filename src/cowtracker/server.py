@@ -125,9 +125,8 @@ async def main():
     dev_mode: bool = True
     try:
         config_nginx = config['nginx']
-        dev_mode = True
+        dev_mode = False
     except Exception:
-        dev_mode = True
         logger.info("No nginx configuration found, assuming development mode")
 
     if 'dev_mode' in config:

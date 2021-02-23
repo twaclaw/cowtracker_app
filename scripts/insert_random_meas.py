@@ -51,6 +51,7 @@ async def main():
         lon = round(random.uniform(-72.77, -72.773), 6)
         pos = (lat, lon)
         batt_cap = args.batt_cap - random.randint(0, 20)
+        t = datetime.utcnow()
 
         sql = f'''
             INSERT INTO meas
@@ -68,7 +69,7 @@ async def main():
             VALUES
             (
                 {args.id},
-                '{datetime.utcnow()}',
+                '{t}',
                 '{pos}',
                 {accuracy},
                 3.6,
