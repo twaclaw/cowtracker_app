@@ -18,6 +18,8 @@ email:
   to:
     -
 
+frontend_folder: /home/ubuntu/code/cowtracker-frontend/dist
+
 warnings:
   batt_v_normal: 3.6
   batt_v_warn: 3.4
@@ -56,3 +58,6 @@ logger:
   root:
     level: DEBUG
     handlers: [console, filerot]
+
+nginx:
+  socket: /tmp/cowtracker_1.sock

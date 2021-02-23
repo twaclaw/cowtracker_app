@@ -5,7 +5,7 @@ import logging
 import logging.config
 from pathlib import Path
 import os
-import ssl
+from typing import Dict, Optional
 import yaml
 
 from cowtracker.db import conf_db_uri
@@ -19,19 +19,29 @@ logger = logging.getLogger('server')
 routes = web.RouteTableDef()
 app = web.Application()
 cows_obj = Cows()
+frontend_folder: Optional[str] = None
 
 
 # ------------------------------------------------------------
 # Application routes
 # ------------------------------------------------------------
+
+@routes.get('/')
+async def ui_home(request):
+    return web.FileResponse(
+        os.path.join(frontend_folder, "index.html"))
+
+
 @routes.get('/api/v1/names')
 async def handler_get_cow_names(request):
     data = await cows_obj.get_names()
     return web.json_response(data)
 
+
 @routes.get('/warnings')
 async def handler_get_warnings(request):
     pass
+
 
 @routes.get('/api/v1/meas/{name}')
 async def handler_meas(request):
@@ -46,26 +56,20 @@ async def handler_meas(request):
         data = await cows_obj.get_current_pos_all_cows()
         return web.json_response(data)
 
-# async def redis_engine(app):
-#     app['redis'] = await aioredis.create_redis_pool(host, db=2)
-#     app['log'] = open(f'{port}.txt', 'a')
-#     yield
-#     app['redis'].close()
-#     await app['redis'].wait_closed()
-#     app['log'].close()
 
-
-async def web_start():
+async def web_start(config_nginx: Dict, dev_mode: bool):
+    app.router.add_static('/static', path=frontend_folder)
     app.add_routes(routes)
     runner = web.AppRunner(app)
     await runner.setup()
-    # site = web.TCPSite(runner, None, uri.port,  # type: ignore
-    #                        ssl_context=None if "ssl" not in context
-    #                        else context['ssl']
-
-    # app.cleanup_ctx.append(redis_engine)
-
-    site = web.TCPSite(runner)
+    if dev_mode:
+        logger.info("Starting TCP site")
+        site = web.TCPSite(runner)
+    else:
+        socket = config_nginx['socket']
+        logger.info(f"Starting UnixSite on socket: {socket}")
+        site = web.UnixSite(
+            runner, socket, ssl_context=None)
     await site.start()
 
 
@@ -115,8 +119,22 @@ async def main():
     email_sender = Email(email_conf)
     await cows_obj.aioinit(email_sender)
 
+    global frontend_folder
+    frontend_folder = config['frontend_folder']
+
+    dev_mode: bool = True
+    try:
+        config_nginx = config['nginx']
+        dev_mode = True
+    except Exception:
+        dev_mode = True
+        logger.info("No nginx configuration found, assuming development mode")
+
+    if 'dev_mode' in config:
+        dev_mode = config['dev_mode']
+
     await asyncio.gather(
-        web_start(),
+        web_start(config_nginx, dev_mode),
         ttn_client.run_retry(topics)
     )
 

@@ -12,7 +12,7 @@ VALUES
 (57, 'cow09'),
 (304, 'cow10');
 
-INSERT INTO cows(label, name)
+INSERT INTO cows(name, label)
 VALUES
 ('Artemisa', 'cow00'),
 ('Candelaria', 'cow01'),
