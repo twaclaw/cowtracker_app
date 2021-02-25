@@ -150,7 +150,7 @@ class _PointRecord():
             w = _Warning(_WarningType.COW_TOO_FAR,
                          _WarningVariant.DANGER, int(dist2ref))
             warns.append(w.to_json() if to_json else w)
-            self.status = _WarningVariant.WARNING
+            self.status = _WarningVariant.DANGER
 
         # check if device is not sending data
         now = datetime.utcnow()
