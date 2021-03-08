@@ -138,20 +138,6 @@ class _PointRecord():
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        # check if cow is too far away from reference point
-        dist2ref = geodist(self.point, _REF_POS).meters
-        if dist2ref > _DIST_M_WARN and dist2ref < _DIST_M_DANGER:
-            w = _Warning(_WarningType.COW_TOO_FAR,
-                         _WarningVariant.WARNING, int(dist2ref))
-            warns.append(w.to_json() if to_json else w)
-            self.status = _WarningVariant.WARNING
-
-        if dist2ref > _DIST_M_DANGER:
-            w = _Warning(_WarningType.COW_TOO_FAR,
-                         _WarningVariant.DANGER, int(dist2ref))
-            warns.append(w.to_json() if to_json else w)
-            self.status = _WarningVariant.DANGER
-
         # check if device is not sending data
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
@@ -166,6 +152,20 @@ class _PointRecord():
                          _WarningVariant.DANGER, int(deltaT/3600))
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
+
+        # check if cow is too far away from reference point
+        dist2ref = geodist(self.point, _REF_POS).meters
+        if dist2ref > _DIST_M_WARN and dist2ref < _DIST_M_DANGER:
+            w = _Warning(_WarningType.COW_TOO_FAR,
+                         _WarningVariant.WARNING, int(dist2ref))
+            warns.append(w.to_json() if to_json else w)
+            self.status = _WarningVariant.WARNING
+
+        if dist2ref > _DIST_M_DANGER:
+            w = _Warning(_WarningType.COW_TOO_FAR,
+                         _WarningVariant.DANGER, int(dist2ref))
+            warns.append(w.to_json() if to_json else w)
+            self.status = _WarningVariant.DANGER
 
         return warns
 
@@ -238,7 +238,6 @@ class Cows(metaclass=_Singleton):
         if len(records) > 0:
             self._mapping = {x['name']: x['deveui'] for x in records}
             self._mapping_by_deveui = {x['deveui']: x['name'] for x in records}
-
 
     async def aioinit(self, email_sender: Email):
         self.email_sender = email_sender
