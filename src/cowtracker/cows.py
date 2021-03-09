@@ -225,6 +225,7 @@ class _Singleton(type):
 
 class Cows(metaclass=_Singleton):
     CHECKUP_PERIOD_HOURS = 6
+    NO_MSG_RECV_TIME_BTW_EMAILS_HOURS = 24
     LAST_MSG_TIME_S_WARN = 3600*3
 
     def __init__(self):
@@ -232,6 +233,7 @@ class Cows(metaclass=_Singleton):
         self._mapping_by_deveui: Optional[Mapping[str, int]] = None
         self.email_sender: Optional[Email] = None
         self.cows_not_moving: Dict[str, _Warning] = {}
+        self._last_email_t: datetime = datetime(1, 1, 1)  # an old date
 
     async def _create_name_deveui_mapping(self):
         records = await Cows._map_names_to_deveuis()
@@ -253,6 +255,9 @@ class Cows(metaclass=_Singleton):
         return now.astimezone(_TZ)
 
     async def _check_all_cows(self):
+        """ Periodic checkup
+        Check periodically whether messages are being received.
+        """
         warnings = []
         last_msg_received = 0
         last_msg_date = None
@@ -274,11 +279,14 @@ class Cows(metaclass=_Singleton):
 
         now = datetime.utcnow().timestamp()
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
-            logger.info(
-                f"Possible gateway error, no message received since: {last_msg_date}")
-            msg = f"Ningún mensaje recibido desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
-            self.email_sender.send_email(
-                "[REVISAR] No se están recibiendo mensajes", msg)
+            t_delta = datetime.now() - self._last_email_t
+            if t_delta.total_seconds()//3600 > self.NO_MSG_RECV_TIME_BTW_EMAILS_HOURS:
+                self._last_email_timestamp = datetime.now()
+                logger.info(
+                    f"Possible gateway error, no message received since: {last_msg_date}")
+                msg = f"Ningún mensaje recibido desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
+                self.email_sender.send_email(
+                    "[REVISAR] No se están recibiendo mensajes", msg)
             return
 
         if len(warnings) == 0:
