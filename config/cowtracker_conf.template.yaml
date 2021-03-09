@@ -48,12 +48,13 @@ logger:
       stream: ext://sys.stdout
 
     filerot:
-      class: logging.handlers.TimedRotatingFileHandler
+      class: logging.handlers.RotatingFileHandler
+      maxBytes: 10485760
       level: INFO
       formatter: csfmt
       filename: /home/ubuntu/logs/cowtracker.log
       backupCount: 10
-      when: midnight
+      # when: midnight
 
   root:
     level: DEBUG
