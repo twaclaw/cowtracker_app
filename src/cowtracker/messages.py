@@ -4,7 +4,7 @@ from enum import Enum, auto
 import logging
 from typing import Dict, List
 
-from cowtracker.db import connection, pg_str
+from cowtracker.db import connection
 from cowtracker.cows import Cows
 
 
@@ -164,4 +164,6 @@ class Message():
             );
             '''
             await conn.execute(sql)
+
+            # trigger cow movement check
             await cows.check_cow_movement(self.dev_eui)

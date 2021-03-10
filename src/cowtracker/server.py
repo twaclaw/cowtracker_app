@@ -8,7 +8,7 @@ import os
 from typing import Dict, Optional
 import yaml
 
-from cowtracker.db import conf_db_uri
+from cowtracker.db import conf_db_uri, db_stop
 from cowtracker.ttn import TTNClient
 from cowtracker.cows import Cows, set_warn_levels
 from cowtracker.email import Email
@@ -60,6 +60,7 @@ async def handler_meas(request):
 async def web_start(config_nginx: Dict, dev_mode: bool):
     app.router.add_static('/static', path=frontend_folder)
     app.add_routes(routes)
+    app.on_cleanup.append(on_cleanup)
     runner = web.AppRunner(app)
     await runner.setup()
     if dev_mode:
@@ -72,6 +73,10 @@ async def web_start(config_nginx: Dict, dev_mode: bool):
             runner, socket, ssl_context=None)
     await site.start()
 
+async def on_cleanup(app):
+    logger.info("On cleanup")
+    await db_stop()
+
 
 async def main():
     parser = argparse.ArgumentParser()
@@ -82,14 +87,14 @@ async def main():
     try:
         args = parser.parse_args()
     except Exception as ex:
-        print("Argument parsing failed!")
+        logger.error("Argument parsing failed!")
         raise ex
 
     try:
         config = yaml.safe_load(
             Path(os.path.realpath(args.config)).read_text())
     except Exception as ex:
-        print("Invalid configuration file!")
+        logger.error("Invalid configuration file!")
         raise ex
 
     lns_config = config['lns']

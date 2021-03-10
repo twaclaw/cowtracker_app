@@ -29,12 +29,12 @@ def conf_db_uri(host: str, user: str, port: str = '5432', db: str = _DB_NAME) ->
     return db_
 
 
-async def shutdown() -> None:
+async def db_stop() -> None:
     global _DBPOOL
-    logger.debug('Shutting down DBPOOL...')
+    logger.debug('Shutting down database')
     await _DBPOOL.shutdown()
     _DBPOOL = None
-    logger.debug('DBPOOL shutdown completed.')
+    logger.debug('Completed database shutdown')
 
 
 class _DbPool:
