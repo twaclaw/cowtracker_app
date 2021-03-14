@@ -1,5 +1,4 @@
 from datetime import datetime
-import argparse
 import asyncio
 from asyncio_mqtt import Client, MqttError
 from contextlib import AsyncExitStack
@@ -12,13 +11,6 @@ from cowtracker.messages import Message
 
 
 logger = logging.getLogger('ttn')
-
-
-def log(msg, always_print: Optional[bool] = True):
-    if always_print:
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-        msg = f"[{now}] {msg}"
-        print(msg)
 
 
 class TTNClient():
@@ -79,8 +71,11 @@ class TTNClient():
                     message = uplink.decode()
                     try:
                         if message is not None:
-                            #TODO: if status is valid
-                            await uplink.store()
+                            if len(message['status']) > 0:
+                                logger.info(
+                                    f"Not storing message with status: {message['status']} to db.")
+                            else:
+                                await uplink.store()
                     except Exception:
                         logger.exception(
                             f"Error storing message to db: {message}")

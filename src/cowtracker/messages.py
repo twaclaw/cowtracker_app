@@ -29,11 +29,17 @@ class Message():
                     self.__data['end_device_ids']['dev_eui'], 16) & 0x1FF
             except Exception:
                 self.dev_eui = 0
+
+            try:
+                self.port = self.__uplink_message['f_port']
+            except Exception:
+                self.port = -1
+
             self.__uplink_message = self.__data['uplink_message']
             self.__raw = self.__uplink_message['frm_payload']
-            self.port = self.__uplink_message['f_port']
             self.__base64 = b64decode(self.__raw)
         except Exception as ex:
+            self.__base64 = b64decode('0000')
             logger.exception(f"Invalid message received: {self.__data}")
 
         try:
@@ -113,7 +119,7 @@ class Message():
                 lonacc & 0x1FFFFFFF, 29) / 1000000
             self.accuracy = 2 * ((lonacc >> 29) & 0x7) + 2
 
-            logger.info(f"{self.dev_eui}:{self.port} -> {self.battery}V {self.temperature} C\
+            logger.info(f"{self.dev_eui}:{self.port} -> ({self.status}) {self.battery}V {self.temperature} C\
                  ({self.batt_capacity}%) ({self.latitude}, {self.longitude}) {self.accuracy}%\
                      rssi: {self.__rssi}, snr: {self.__snr}")
 
