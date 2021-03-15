@@ -30,16 +30,17 @@ class Message():
             except Exception:
                 self.dev_eui = 0
 
+            self.__uplink_message = self.__data['uplink_message']
+
             try:
                 self.port = self.__uplink_message['f_port']
             except Exception:
                 self.port = -1
 
-            self.__uplink_message = self.__data['uplink_message']
             self.__raw = self.__uplink_message['frm_payload']
             self.__base64 = b64decode(self.__raw)
-        except Exception as ex:
-            self.__base64 = b64decode('0000')
+        except Exception:
+            self.__base64 = None
             logger.exception(f"Invalid message received: {self.__data}")
 
         try:
@@ -53,7 +54,7 @@ class Message():
 
     @property
     def payload(self):
-        return f"0x{self.__base64.hex()}"
+        return f"0x{self.__base64.hex()}" if self.__base64 is not None else '0x000000'
 
     def __repr__(self):
         return f"{self.dev_eui}:{self.port} -> {self.payload}"

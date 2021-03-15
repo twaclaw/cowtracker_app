@@ -362,7 +362,7 @@ class Cows(metaclass=_Singleton):
                 logger.info(f"{name} not moving since {last_msg_date}")
                 msg = f"{name} no se mueve  al menos desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
                 self.email_sender.send_email(
-                    "[URGENTE] {name} no se está moviendo!", msg)
+                    f"[URGENTE] {name} no se está moviendo!", msg)
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
