@@ -113,16 +113,12 @@ class Message():
 
             # Byte 7-10: longitude+accuracy (lsbf)
             # Bits [28:0] signed value λ, range -179,999,999 – 180,000,000; WGS84 longitude in ° = λ ÷ 1,000,000.
-            # Bits [31:29] unsigned value α, range 0-7; position accuracy estimate in m = 2 α+2 (max).
+            # Bits [31:29] unsigned value α, range 0-7; position accuracy estimate in m = 2α + 2 (max).
             # The value 7 represents an accuracy estimate of worse than 256m.
             lonacc = Message._rdlsbf(self.__base64, 7, 4)
             self.longitude = Message._signed(
                 lonacc & 0x1FFFFFFF, 29) / 1000000
             self.accuracy = 2 * ((lonacc >> 29) & 0x7) + 2
-
-            logger.info(f"{self.dev_eui}:{self.port} -> ({self.status}) {self.battery}V {self.temperature} C\
-                 ({self.batt_capacity}%) ({self.latitude}, {self.longitude}) {self.accuracy}%\
-                     rssi: {self.__rssi}, snr: {self.__snr}")
 
             return {
                 "dev_eui": self.dev_eui,

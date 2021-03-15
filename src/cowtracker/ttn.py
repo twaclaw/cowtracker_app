@@ -71,6 +71,7 @@ class TTNClient():
                     message = uplink.decode()
                     try:
                         if message is not None:
+                            logger.info(f"Decoded message: {ujson.dumps(message, indent=4)}")
                             if len(message['status']) > 0:
                                 logger.info(
                                     f"Not storing message with status: {message['status']} to db.")
