@@ -1,6 +1,6 @@
 import asyncio
 from asyncpg import Connection, Record
-from datetime import datetime, tzinfo
+from datetime import datetime
 from enum import Enum, auto
 from geopy.distance import distance as geodist
 import logging
@@ -84,13 +84,13 @@ class _Warning():
             return f"Batería baja: {self.value[0]}V ({self.value[1]}%)"
 
         if self.code == _WarningType.NO_MSG_RECV:
-            t: datetime = self.value
+            t: datetime = datetime.fromtimestamp(self.value)
             t.astimezone(_TZ).strftime("%H:%M:%S %d-%m")
 
-            return f"No envía mensajes desde {t}"
+            return f"No envía mensajes desde las {t}"
 
         if self.code == _WarningType.COW_TOO_FAR:
-            return f"El animal está muy lejos, a {round(self.value, 1)}m del salineadero"
+            return f"El animal está muy lejos, a aprox. {round(self.value, 1)}m del salineadero"
 
 
 class _PointRecord():
@@ -143,13 +143,13 @@ class _PointRecord():
         deltaT = now.timestamp() - t.timestamp()
         if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
             w = _Warning(_WarningType.NO_MSG_RECV,
-                         _WarningVariant.WARNING, int(deltaT/3600))
+                         _WarningVariant.WARNING, t.timestamp())
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
         if deltaT > _TIME_S_DANGER:
             w = _Warning(_WarningType.NO_MSG_RECV,
-                         _WarningVariant.DANGER, int(deltaT/3600))
+                         _WarningVariant.DANGER, t.timestamp())
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
@@ -191,7 +191,7 @@ class _PointRecord():
             warns = self.get_warnings()
             if no_mov_warn:
                 self.status = _WarningVariant.DANGER
-                warns.append(no_mov_warn)
+                warns.append(no_mov_warn.to_json())
 
             point['status'] = self.status.value
             point['warnings'] = warns
