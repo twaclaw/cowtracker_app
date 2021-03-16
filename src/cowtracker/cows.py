@@ -342,6 +342,8 @@ class Cows(metaclass=_Singleton):
             p1 = points[1]
             p2 = points[2]
 
+            name = self._mapping_by_deveui[deveui]
+
             # if current position is the same as  previous two
             if self._is_same_pos(p0, p1) and self._is_same_pos(p0, p2):
                 logger.info(
@@ -353,7 +355,6 @@ class Cows(metaclass=_Singleton):
                     p = points[i]
                     i += 1
 
-                name = self._mapping_by_deveui[deveui]
                 last_msg_date = p.localtime
 
                 self.cows_not_moving[name] = _Warning(
@@ -363,6 +364,11 @@ class Cows(metaclass=_Singleton):
                 msg = f"{name} no se mueve  al menos desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
                 self.email_sender.send_email(
                     f"[URGENTE] {name} no se está moviendo!", msg)
+            else:
+                # clear warning
+                if name in self.cows_not_moving:
+                    del self.cows_not_moving[name]
+
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
