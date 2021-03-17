@@ -415,8 +415,13 @@ class Cows(metaclass=_Singleton):
             deveui = self._mapping[name]
             points = await Cows._get_last_coords_per_id(conn, deveui, n_points)
             if len(points) > 0:
+                no_mov_warn = self.cows_not_moving[name] if name in self.cows_not_moving else None
                 current_pos = points.pop(0).to_json(
-                    name=name, include_warnings=True)
+                    name=name, include_warnings=True, no_mov_warn=no_mov_warn)
+
+                if no_mov_warn is not None:
+                    logger.debug(f"Appending not moving warning to {name}: {no_mov_warn.to_json()}")
+
                 return [current_pos] + [p.to_json(name=name, include_warnings=False) for p in points]
             else:
                 return []
@@ -433,7 +438,7 @@ class Cows(metaclass=_Singleton):
                     no_mov_warn = self.cows_not_moving[name] if name in self.cows_not_moving else None
                     if no_mov_warn is not None:
                         logger.debug(
-                            f"No moving warning found: {no_mov_warn.to_json()}")
+                            f"Appending not moving warning to {name}: {no_mov_warn.to_json()}")
                     points.append(
                         p.to_json(name=name, no_mov_warn=no_mov_warn))
 
