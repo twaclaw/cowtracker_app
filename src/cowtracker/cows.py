@@ -90,7 +90,7 @@ class _Warning():
             return f"No envía mensajes desde las {t}"
 
         if self.code == _WarningType.COW_TOO_FAR:
-            return f"El animal está muy lejos, a aprox. {round(self.value, 1)}m del salineadero"
+            return f"El animal está muy lejos, a aprox. {round(self.value, 1)}m del Ortigal"
 
 
 class _PointRecord():
@@ -321,7 +321,7 @@ class Cows(metaclass=_Singleton):
         """
         acc = max(p1.accuracy, p2.accuracy)  # takes the largest accuracy
         delta = geodist(p1.point, p2.point).meters
-        return delta > 2*acc
+        return delta < 2*acc
 
     async def check_cow_movement(self, deveui: int):
         """ Check if a cow is moving
@@ -330,7 +330,8 @@ class Cows(metaclass=_Singleton):
         """
         now = self._get_localtime()
         # Skip during the night
-        if now.hour < 8 and now.hour > 20:
+        if now.hour < 8 or now.hour > 20:
+            logger.debug(f"Skipping check if cow is moving because it is night time ZzZzZ!!. Local time: {now}")
             return
 
         async with await connection() as conn:
@@ -360,15 +361,18 @@ class Cows(metaclass=_Singleton):
                 self.cows_not_moving[name] = _Warning(
                     _WarningType.COW_NOT_MOVING, _WarningVariant.DANGER, p.timestamp)
 
+                logger.debug(
+                    f"Adding {name}. cows_not_moving contains: {self.cows_not_moving.keys()}")
+
                 logger.info(f"{name} not moving since {last_msg_date}")
-                msg = f"{name} no se mueve  al menos desde: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
+                msg = f"{name} no se mueve  al menos desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
                 self.email_sender.send_email(
                     f"[URGENTE] {name} no se está moviendo!", msg)
             else:
                 # clear warning
                 if name in self.cows_not_moving:
+                    logger.debug(f"Removing {name} from cows_not_moving")
                     del self.cows_not_moving[name]
-
 
     async def get_mapping(self) -> Mapping[str, int]:
         if self._mapping is None:
@@ -427,6 +431,9 @@ class Cows(metaclass=_Singleton):
                 if len(meas) == 1:
                     p = meas[0]
                     no_mov_warn = self.cows_not_moving[name] if name in self.cows_not_moving else None
+                    if no_mov_warn is not None:
+                        logger.debug(
+                            f"No moving warning found: {no_mov_warn.to_json()}")
                     points.append(
                         p.to_json(name=name, no_mov_warn=no_mov_warn))
 
