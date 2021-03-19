@@ -38,11 +38,6 @@ async def handler_get_cow_names(request):
     return web.json_response(data)
 
 
-@routes.get('/warnings')
-async def handler_get_warnings(request):
-    pass
-
-
 @routes.get('/api/v1/meas/{name}')
 async def handler_meas(request):
     cow = request.match_info['name']
@@ -72,6 +67,7 @@ async def web_start(config_nginx: Dict, dev_mode: bool):
         site = web.UnixSite(
             runner, socket, ssl_context=None)
     await site.start()
+
 
 async def on_cleanup(app):
     logger.info("On cleanup")

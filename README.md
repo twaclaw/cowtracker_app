@@ -1,4 +1,4 @@
-# Happy Cows
+# Happy Cows 🐮🐮
 
 ## A GPS-based cow-tracker application implementing the LoRaWAN&reg; technology (backend)
 
