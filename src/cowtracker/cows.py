@@ -328,12 +328,6 @@ class Cows(metaclass=_Singleton):
 
         This function is called whenever a new record is stored to the database
         """
-        now = self._get_localtime()
-        # Skip during the night
-        if now.hour < 8 or now.hour > 20:
-            logger.debug(f"Skipping check if cow is moving because it is night time ZzZzZ!!. Local time: {now}")
-            return
-
         async with await connection() as conn:
             points = await self._get_last_coords_per_id(conn, deveui, 20)
 
@@ -366,8 +360,14 @@ class Cows(metaclass=_Singleton):
 
                 logger.info(f"{name} not moving since {last_msg_date}")
                 msg = f"{name} no se mueve  al menos desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
-                self.email_sender.send_email(
-                    f"[URGENTE] {name} no se está moviendo!", msg)
+
+                now = self._get_localtime()
+                # Skip during the night
+                if now.hour < 6 or now.hour > 20:
+                    logger.debug(f"Skipping sending alert email because it is night time ZzZzZ!!. Local time: {now}")
+                else:
+                    self.email_sender.send_email(
+                        f"[URGENTE] {name} no se está moviendo!", msg)
             else:
                 # clear warning
                 if name in self.cows_not_moving:
