@@ -352,9 +352,6 @@ class Cows(metaclass=_Singleton):
 
                 last_msg_date = p.localtime
 
-                self.cows_not_moving[name] = _Warning(
-                    _WarningType.COW_NOT_MOVING, _WarningVariant.DANGER, p.timestamp)
-
                 logger.debug(
                     f"Adding {name}. cows_not_moving contains: {self.cows_not_moving.keys()}")
 
@@ -362,10 +359,14 @@ class Cows(metaclass=_Singleton):
                 msg = f"{name} no se mueve  al menos desde las: {last_msg_date.strftime('%H:%M %d-%m-%Y')}"
 
                 now = self._get_localtime()
-                # Skip during the night
+                # Skip during night
                 if now.hour < 6 or now.hour > 20:
-                    logger.debug(f"Skipping sending alert email because it is night time ZzZzZ!!. Local time: {now}")
+                    logger.debug(
+                        f"Skipping sending alert email because it is night time ZzZzZ!!. Local time: {now}")
                 else:
+                    self.cows_not_moving[name] = _Warning(
+                        _WarningType.COW_NOT_MOVING, _WarningVariant.DANGER, p.timestamp)
+
                     self.email_sender.send_email(
                         f"[URGENTE] {name} no se está moviendo!", msg)
             else:
@@ -420,7 +421,8 @@ class Cows(metaclass=_Singleton):
                     name=name, include_warnings=True, no_mov_warn=no_mov_warn)
 
                 if no_mov_warn is not None:
-                    logger.debug(f"Appending not moving warning to {name}: {no_mov_warn.to_json()}")
+                    logger.debug(
+                        f"Appending not moving warning to {name}: {no_mov_warn.to_json()}")
 
                 return [current_pos] + [p.to_json(name=name, include_warnings=False) for p in points]
             else:

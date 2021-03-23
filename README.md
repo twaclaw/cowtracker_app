@@ -1,10 +1,10 @@
-# Happy Cows 🐮🐮
+# Happy  Cows 🐮🐮🐮
 
-## A GPS-based cow-tracker application implementing the LoRaWAN&reg; technology (backend)
+## A GPS-based cow-tracker application implementing the LoRaWAN&reg; communication technology (backend)
 
 <p align="center">
 <img src="images/pangote-1.png" width="800"> 
-<img src="images/pangote-3.png" width="800"> 
+<!-- <img src="images/pangote-3.png" width="800"> -->
 </p>
 
 
@@ -15,9 +15,23 @@ We care a great deal about our cows and want to make sure they are always safe a
 <img src="images/pangote-2.png" width="800"> 
 </p>
 
-[LoRaWAN&reg;](https://lora-developers.semtech.com/library/tech-papers-and-guides/lora-and-lorawan/)
+The trackers are based on GPS and implement the [LoRaWAN&reg;](https://lora-developers.semtech.com/library/tech-papers-and-guides/lora-and-lorawan/) protocol. 
 
-# Credits
+The backend is responsible for:
+
+* Getting the uplink messages from TTN.
+* Storing positions to a database
+* Determining whether a cow is moving or not
+* Determining whether a device is working properly; namely, that the battery level is OK and the device is sending periodically.
+* Sending emails whenever one of the following conditions occurs:
+    * A cow is not moving
+    * A cow is too far away
+    * A device is malfunctioning 
+
+
+
+# Credits and Acknowledgements
+
 * Pictures: Fernando Sandoval
-* Cow icon
-* 
+* Edgar and Fernando Sandoval did a lot of working testing and deploying the solution
+* Frank H. helped us a lot modifying the firmware of the trackers.
