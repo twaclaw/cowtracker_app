@@ -32,6 +32,6 @@ The backend is responsible for:
 
 # Credits and Acknowledgements
 
-* Pictures: Fernando Sandoval
-* Edgar and Fernando Sandoval did a lot of work testing and deploying the solution
-* Frank H. helped us a lot modifying the firmware of the trackers.
+* Pictures: Fernando Sandoval.
+* Edgar and Fernando Sandoval were responsible for testing and deploying the solution.
+* Frank Höring helped us a big deal setting up the trackers.
