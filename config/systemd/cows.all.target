@@ -1,0 +1,6 @@
+[Unit]
+Description=Start/stop all services
+After=default.target
+
+[Install]
+RequiredBy=default.target

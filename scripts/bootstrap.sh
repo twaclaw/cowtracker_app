@@ -15,8 +15,15 @@ mkdir ~/scripts
 cp cowtracker-backend/scripts/launch* ~/scripts
 chmod 700 ~/scripts/*
 
-# copy supervisor configuration
-sudo cp cowtracker-backend/scripts/supervisord.conf /etc/supervisor/conf.d/cowtracker.conf
+# systemd configuration
+mv ~/scripts/systemd ~
+systemctl --user link ~/systemd/cows.all.target
+systemctl --user link ~/systemd/cows@.service
+systemctl --user daemon-reload
+systemctl --user enable cows.all.target
+systemctl --user enable cows@1.service
+systemctl --user start cows@1.service
+
 cd ~
 mkdir logs
 

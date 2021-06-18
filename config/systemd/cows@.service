@@ -1,0 +1,11 @@
+[Unit]
+Description=Pangote happy cows tracker
+PartOf=cows.all.target
+
+[Service]
+ExecStart=/home/ubuntu/scripts/launch-server.sh --config /home/ubuntu/cowtracker_conf.yaml
+Restart=always
+RestartSec=20s
+
+[Install]
+WantedBy=cows.all.target
