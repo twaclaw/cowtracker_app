@@ -64,7 +64,8 @@ async def main():
                 batt_cap,
                 temp,
                 rssi,
-                snr
+                snr,
+                sf
             )
             VALUES
             (
@@ -76,7 +77,8 @@ async def main():
                 {batt_cap},
                 '20', 
                 '0',
-                '0'
+                '0',
+                '7'
             );
             '''
         await conn.execute(sql)
