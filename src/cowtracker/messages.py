@@ -31,6 +31,7 @@ class Message():
                 self.dev_eui = 0
 
             self.__uplink_message = self.__data['uplink_message']
+            self.__settings = self.__data['settings']
 
             try:
                 self.port = self.__uplink_message['f_port']
@@ -46,11 +47,13 @@ class Message():
         try:
             self.__rssi = self.__uplink_message['rx_metadata'][0]['rssi']
             self.__snr = self.__uplink_message['rx_metadata'][0]['snr']
+            self.__sf = self.__settings['data_rate']['lora']['spreading_factor']
         except Exception:
             logger.exception(
                 f"Couldn't extract rssi and snr from message: {self.__data}")
             self.__rssi = None
             self.__snr = None
+            self.__sf = None
 
     @property
     def payload(self):
@@ -130,6 +133,7 @@ class Message():
                 "status": self.status,
                 "rssi": self.__rssi,
                 "snr": self.__snr,
+                "sf": self.__sf
             }
         else:
             logger.info(
@@ -151,7 +155,8 @@ class Message():
                 batt_cap,
                 temp,
                 rssi,
-                snr
+                snr,
+                sf
             )
             VALUES
             (
@@ -163,7 +168,8 @@ class Message():
                 {self.batt_capacity if self.batt_capacity else 'NULL'},
                 {self.temperature if self.temperature else 'NULL'},
                 {self.__rssi if self.__rssi else 'NULL'},
-                {self.__snr if self.__snr else 'NULL'}
+                {self.__snr if self.__snr else 'NULL'},
+                {self.__sf if self.__sf else 'NULL'}
             );
             '''
             await conn.execute(sql)

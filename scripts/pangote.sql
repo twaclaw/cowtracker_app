@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS meas(
     batt_cap            INT,
     temp                INT,
     rssi                FLOAT,
-    snr                 FLOAT
+    snr                 FLOAT,
+    sf                  INT
 );
 
 -- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
