@@ -394,7 +394,7 @@ class Cows(metaclass=_Singleton):
 
         sql = f'''
         SELECT * FROM meas WHERE deveui={deveui} 
-        ORDER BY t DESC LIMIT {n_points};
+        ORDER BY t DESC;
         '''
         records = await conn.fetch(sql)
         points: List[_PointRecord] = []
@@ -435,7 +435,7 @@ class Cows(metaclass=_Singleton):
             for name in self._mapping:
                 deveui = self._mapping[name]
                 meas = await Cows._get_last_coords_per_id(conn, deveui, 1)
-                if len(meas) == 1:
+                if len(meas) > 1:
                     p = meas[0]
                     no_mov_warn = self.cows_not_moving[name] if name in self.cows_not_moving else None
                     if no_mov_warn is not None:
