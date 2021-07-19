@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #DOMAIN=
-#sudo certbot --nginx -d ${DOMAIN}
-# sudo apt-get install certbot supervisor letsencrypt nginx python3-certbot-nginx pipenv
+sudo certbot --nginx -d ${DOMAIN}
+sudo apt-get install certbot  letsencrypt nginx python3-certbot-nginx pipenv npm python3-certbot-nginx postgresql postgresql-client-common postgresql-client-12
 
 # clone code
 mkdir code
@@ -12,11 +12,11 @@ git clone git@github.com:twaclaw/cowtracker_app.git cowtracker-backend
 
 # prepare launching scripts
 mkdir ~/scripts
-cp cowtracker-backend/scripts/launch* ~/scripts
+cp code/cowtracker-backend/scripts/launch* ~/scripts
 chmod 700 ~/scripts/*
 
 # systemd configuration
-mv ~/scripts/systemd ~
+mv ~/code/cowtracker-backend/config/systemd ~
 systemctl --user link ~/systemd/cows.all.target
 systemctl --user link ~/systemd/cows@.service
 systemctl --user daemon-reload
@@ -33,8 +33,15 @@ pipenv install
 
 # prepare frontend
 cd ~/code/cowtracker-frontend
-npm run install
+npm install
 npm run build
 npm run generate
 
 # update nginx
+sudo cp ~/code/cowtracker-backend/config/nginx.conf /etc/nginx/
+nc -vlU cowtracker_1.sock
+mv cowtracker_1.sock /tmp
+
+
+# bootstrap database
+sudo systemctl start postgresql.service

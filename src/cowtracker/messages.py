@@ -26,7 +26,7 @@ class Message():
         try:
             try:
                 self.dev_eui = int(
-                    self.__data['end_device_ids']['dev_eui'], 16) & 0x1FF
+                    self.__data['end_device_ids']['dev_eui'], 16) & 0xFFF
             except Exception:
                 self.dev_eui = 0
 
