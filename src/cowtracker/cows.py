@@ -270,14 +270,15 @@ class Cows(metaclass=_Singleton):
             for name in self._mapping:
                 deveui = self._mapping[name]
                 points = await Cows._get_last_coords_per_id(conn, deveui, 1)
-                record = points[0]
-                if record.timestamp > last_msg_received:
-                    last_msg_received = record.timestamp
-                    last_msg_date = record.localtime
+                if len(points) > 0:
+                    record = points[0]
+                    if record.timestamp > last_msg_received:
+                        last_msg_received = record.timestamp
+                        last_msg_date = record.localtime
 
-                warns = record.get_warnings(to_json=False)
-                if len(warns) > 0:
-                    warnings.append((name, warns))
+                    warns = record.get_warnings(to_json=False)
+                    if len(warns) > 0:
+                        warnings.append((name, warns))
 
         now = datetime.utcnow().timestamp()
         if (now - last_msg_received) > self.LAST_MSG_TIME_S_WARN:
