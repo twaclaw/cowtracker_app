@@ -1,0 +1,10 @@
+[Unit]
+Description=Pangote happy cows tracker socket
+PartOf=cows.all.target
+
+[Socket]
+ListenStream=/tmp/cowtracker_1.sock
+SocketUser=ubuntu
+
+[Install]
+WantedBy=cows.all.target

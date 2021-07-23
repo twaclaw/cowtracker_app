@@ -31,7 +31,7 @@ class Message():
                 self.dev_eui = 0
 
             self.__uplink_message = self.__data['uplink_message']
-            self.__settings = self.__data['settings']
+            self.__settings = self.__uplink_message['settings']
 
             try:
                 self.port = self.__uplink_message['f_port']
