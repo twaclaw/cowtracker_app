@@ -1,6 +1,7 @@
 [Unit]
 Description=Pangote happy cows tracker
 PartOf=cows.all.target
+After=cows@.socket
 
 [Service]
 ExecStart=/home/ubuntu/scripts/launch-server.sh --config /home/ubuntu/cowtracker_conf.yaml
