@@ -10,7 +10,7 @@
 
 Our cows enjoy gorgeous views and roam around freely at 3300 m.a.s.l in the Colombian Andes. The freedom and meditative scenery in the evergreen mountains comes at a price; the location is remote, and accessing it is difficult.
 
-We care a great deal about our cows and want to make sure they are always safe and sound. That is why we decided to implement a tracking solution. On the one hand, we want to find them when they venture into the forest. On the other hand, we want to establish when a cow is not moving and requires assistance. 
+We care a great deal about our cows and want to make sure they are always safe and sound. That is why we decided to implement a tracking solution. On the one hand, we want to find them when they venture into the forest. On the other hand, we want to know when a cow is not moving and requires assistance.
 
 <!-- <img src="images/pangote-2.png" width="800">  -->
 <!-- </p> -->
@@ -19,10 +19,10 @@ The trackers are based on GPS and implement the [LoRaWAN&reg;](https://lora-deve
 
 The backend is responsible for:
 
-* Getting the uplink messages from TTN.
+* Getting the uplink messages from TTN
 * Storing positions to a database
 * Determining whether a cow is moving or not
-* Determining whether a device is working properly; namely, that the battery level is OK and the device is sending periodically.
+* Determining whether a device is working properly; namely, that the battery level is OK and the device is transmitting periodically.
 * Sending emails whenever one of the following conditions occurs:
     * A cow is not moving
     * A cow is too far away
