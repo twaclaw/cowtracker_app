@@ -41,5 +41,5 @@ VALUES
 ('Picasso', 'cow07'),
 ('Salvador', 'cow08'),
 ('Tobias', 'cow09'),
-('Vikingo', 'cow10');
-
+('Vikingo', 'cow10'),
+('Zeus', 'cow11');
