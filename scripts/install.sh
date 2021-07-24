@@ -15,10 +15,13 @@ mkdir ~/scripts
 cp code/cowtracker-backend/scripts/launch* ~/scripts
 chmod 700 ~/scripts/*
 
+# MAKE SURE the dev_mode option is disabled
+
 # systemd configuration
 mv ~/code/cowtracker-backend/config/systemd ~
 systemctl --user link ~/systemd/cows.all.target
 systemctl --user link ~/systemd/cows@.service
+systemctl --user link ~/systemd/cows@.socket
 systemctl --user daemon-reload
 systemctl --user enable cows.all.target
 systemctl --user enable cows@1.service
@@ -39,9 +42,11 @@ npm run generate
 
 # update nginx
 sudo cp ~/code/cowtracker-backend/config/nginx.conf /etc/nginx/
-nc -vlU cowtracker_1.sock
-mv cowtracker_1.sock /tmp
-
 
 # bootstrap database
 sudo systemctl start postgresql.service
+echo "localhost:5432:pangote:$USERDB:$PASSDB" > ~/.pgpass
+chmod 400 ~/.pgpass
+psql --user $USERDB -d pangote -h localhost -f ~/code/cowtracker-backend/scripts/psql.sql
+psql --user $USERDB -d pangote -h localhost -f ~/code/cowtracker-backend/scripts/pangote.sql 
+psql --user $USERDB -d pangote -h localhost -f ~/code/cowtracker-backend/scripts/populate_db_tables.sql 

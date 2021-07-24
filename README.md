@@ -34,4 +34,4 @@ The backend is responsible for:
 
 * Pictures: Fernando Sandoval.
 * Edgar and Fernando Sandoval were responsible for testing and deploying the solution.
-* Frank Höring helped us a big deal setting up the trackers.
+* Big thanks to Frank Höring who helped us a big deal setting up the trackers.
