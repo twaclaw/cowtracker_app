@@ -26,9 +26,10 @@ systemctl --user daemon-reload
 systemctl --user enable cows.all.target
 systemctl --user enable cows@1.service
 systemctl --user start cows@1.service
+loginctl enable-linger $USER || true
 
 cd ~
-mkdir logs
+mkdir ~/logs
 
 # prepare backend code
 cd ~/code/cowtracker-backend
@@ -41,6 +42,7 @@ npm run build
 npm run generate
 
 # update nginx
+# replace DOMAIN placeholder
 sudo cp ~/code/cowtracker-backend/config/nginx.conf /etc/nginx/
 
 # bootstrap database

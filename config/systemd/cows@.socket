@@ -3,7 +3,7 @@ Description=Pangote happy cows tracker socket
 PartOf=cows@.service
 
 [Socket]
-ListenStream=/tmp/cowtracker_1.sock
+ListenStream=/tmp/cowtracker_%i.sock
 SocketUser=ubuntu
 
 [Install]
