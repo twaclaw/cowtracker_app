@@ -19,14 +19,14 @@ class TTNClient():
         self.__port = config['port']
         self.__username = config['appid']
         self.__password = config['appkey']
-        self.__client = Client(hostname=self.__hostname,
-                               port=self.__port,
-                               username=self.__username,
-                               password=self.__password,
-                               tls_context=None)
 
     async def run(self, topics: Tuple):
         async with AsyncExitStack() as stack:
+            self.__client = Client(hostname=self.__hostname,
+                                   port=self.__port,
+                                   username=self.__username,
+                                   password=self.__password,
+                                   tls_context=None)
             self.tasks = set()
             stack.push_async_callback(self.cancel_tasks, self.tasks)
             await stack.enter_async_context(self.__client)
