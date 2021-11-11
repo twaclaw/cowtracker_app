@@ -218,7 +218,7 @@ class _PointRecord():
             if key == 'pos':
                 point[key] = {'lat': value.x, 'lon': value.y}
             elif key == 't':
-                t = value
+                t = value  # last time a GPS fix was done
                 t = value.timestamp()
                 point[key] = t
             elif key != 'id' and key != 'deveui':
@@ -226,6 +226,9 @@ class _PointRecord():
 
         if name is not None:
             point['name'] = name
+
+        lastseen = self.lastseen_timestamp  # last time the device sent data
+        point['lastseen'] = lastseen.timestamp() if lastseen else None
 
         if include_warnings:
             warns = self.get_warnings()
