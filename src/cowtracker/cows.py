@@ -140,6 +140,7 @@ class _PointRecord():
 
     def get_warnings(self, to_json: Optional[bool] = True) -> List[_Warning]:
         t = self._data['t']
+        t_ls = self.lastseen_timestamp
         batt_V = self._data['batt_v']
         batt_cap = self._data['batt_cap']
         warns: List[Dict] = []
@@ -175,17 +176,17 @@ class _PointRecord():
             self.status = _WarningVariant.WARNING
 
         # check if the device has sent messages
-        if t.lastseen_timestamp():
-            deltaT = now.timestamp() - t.lastseen_timestamp()
+        if t_ls:
+            deltaT = now.timestamp() - t_ls.timestamp()
             if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
                 w = _Warning(_WarningType.NO_MSG_RECV,
-                             _WarningVariant.WARNING, t.lastseen_timestamp())
+                             _WarningVariant.WARNING, t_ls.timestamp())
                 warns.append(w.to_json() if to_json else w)
                 self.status = _WarningVariant.WARNING
 
             if deltaT > _TIME_S_DANGER:
                 w = _Warning(_WarningType.NO_MSG_RECV,
-                             _WarningVariant.DANGER, t.lastseen_timestamp())
+                             _WarningVariant.DANGER, t_ls.timestamp())
                 warns.append(w.to_json() if to_json else w)
                 self.status = _WarningVariant.WARNING
 
