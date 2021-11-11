@@ -51,6 +51,7 @@ def set_warn_levels(warn_levels):
 
 class _WarningType(Enum):
     NO_MSG_RECV = "WARN_NO_MSGS_RECV"
+    NO_GPS_FIX = "WARN_NO_GPS_FIX"
     BATT_LOW = "WARN_BATT_LOW"
     COW_NOT_MOVING = "WARN_COW_NOT_MOVING"
     COW_TOO_FAR = "WARN_COW_TOO_FAR"
@@ -92,11 +93,15 @@ class _Warning():
         if self.code == _WarningType.COW_TOO_FAR:
             return f"El animal está muy lejos, a aprox. {round(self.value, 1)}m del Ortigal"
 
+        if self.code == _WarningType.NO_GPS_FIX:
+            return f"No hace un fix de GPS desde las {t}"
+
 
 class _PointRecord():
-    def __init__(self, record: Record):
+    def __init__(self, record: Record, lastseen: Record):
         self._data = record
         self.status = _WarningVariant.NONE
+        self._lastseen = lastseen
 
     @property
     def localtime(self):
@@ -105,8 +110,24 @@ class _PointRecord():
 
     @property
     def timestamp(self):
+        """When the device did a GPS fix
+        """
         t = self._data['t']
         return t.timestamp()
+
+    @property
+    def lastseen_timestamp(self):
+        """When the device sent a message
+        """
+        try:
+            return self._lastseen['t']
+        except Exception:
+            return None
+
+    @property
+    def lastseen_localtime(self):
+        t: datetime = self.lastseen_timestamp()
+        return t.astimezone(_TZ) if t is not None else None
 
     @property
     def point(self):
@@ -138,20 +159,35 @@ class _PointRecord():
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
-        # check if device is not sending data
+        # check if device is making GPS fixes
         now = datetime.utcnow()
         deltaT = now.timestamp() - t.timestamp()
         if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
-            w = _Warning(_WarningType.NO_MSG_RECV,
+            w = _Warning(_WarningType.NO_GPS_FIX,
                          _WarningVariant.WARNING, t.timestamp())
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
 
         if deltaT > _TIME_S_DANGER:
-            w = _Warning(_WarningType.NO_MSG_RECV,
+            w = _Warning(_WarningType.NO_GPS_FIX,
                          _WarningVariant.DANGER, t.timestamp())
             warns.append(w.to_json() if to_json else w)
             self.status = _WarningVariant.WARNING
+
+        # check if the device has sent messages
+        if t.lastseen_timestamp():
+            deltaT = now.timestamp() - t.lastseen_timestamp()
+            if deltaT > _TIME_S_WARN and deltaT < _TIME_S_DANGER:
+                w = _Warning(_WarningType.NO_MSG_RECV,
+                             _WarningVariant.WARNING, t.lastseen_timestamp())
+                warns.append(w.to_json() if to_json else w)
+                self.status = _WarningVariant.WARNING
+
+            if deltaT > _TIME_S_DANGER:
+                w = _Warning(_WarningType.NO_MSG_RECV,
+                             _WarningVariant.DANGER, t.lastseen_timestamp())
+                warns.append(w.to_json() if to_json else w)
+                self.status = _WarningVariant.WARNING
 
         # check if cow is too far away from reference point
         dist2ref = geodist(self.point, _REF_POS).meters
@@ -263,6 +299,7 @@ class Cows(metaclass=_Singleton):
         warnings = []
         last_msg_received = 0
         last_msg_date = None
+
         if self._mapping is None:
             await self._create_name_deveui_mapping()
 
@@ -270,6 +307,7 @@ class Cows(metaclass=_Singleton):
             for name in self._mapping:
                 deveui = self._mapping[name]
                 points = await Cows._get_last_coords_per_id(conn, deveui, 1)
+
                 if len(points) > 0:
                     record = points[0]
                     if record.timestamp > last_msg_received:
@@ -400,8 +438,15 @@ class Cows(metaclass=_Singleton):
         records = await conn.fetch(sql)
         points: List[_PointRecord] = []
 
+       # get last seen timestamp
+        sql_l = f'''
+        SELECT * FROM last_seen WHERE deveui={deveui};
+        '''
+        lastseen = await conn.fetchrow(sql_l)
+
         for r in records:
-            points.append(_PointRecord(r))
+            points.append(_PointRecord(r, lastseen))
+
         return points
 
     async def get_last_coords(self,

@@ -27,6 +27,17 @@ CREATE TABLE IF NOT EXISTS cows(
     birthday            TIMESTAMP
 );
 
+-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CREATE TABLE IF NOT EXISTS last_seen(
+    deveui              INT PRIMARY KEY,
+    t                   TIMESTAMP NOT NULL,
+    batt_v              FLOAT,
+    temp                INT,
+    rssi                FLOAT,
+    snr                 FLOAT,
+    sf                  INT
+);
+
 
 
 

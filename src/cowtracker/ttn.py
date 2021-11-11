@@ -72,11 +72,9 @@ class TTNClient():
                     try:
                         if message is not None:
                             logger.info(f"Decoded message: {message}")
-                            if len(message['status']) > 0:
-                                logger.info(
-                                    f"Not storing message with status: {message['status']} to db.")
-                            else:
+                            if len(message['status']) == 0:
                                 await uplink.store()
+                            await uplink.last_seen()
                     except Exception:
                         logger.exception(
                             f"Error storing message to db: {message}")

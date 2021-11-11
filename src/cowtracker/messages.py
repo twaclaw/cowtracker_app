@@ -176,3 +176,45 @@ class Message():
 
             # trigger cow movement check
             await cows.check_cow_movement(self.dev_eui)
+
+    async def last_seen(self):
+        """
+        Update device timestamp. When the the device was seen last time.
+        """
+        async with await connection() as conn:
+            sql = f'''
+            INSERT INTO last_seen
+            (
+                deveui,
+                t,
+                batt_v,
+                temp,
+                rssi,
+                snr,
+                sf
+            )
+            VALUES
+            (
+                {self.dev_eui},
+                '{datetime.utcnow()}',
+                {self.battery if self.battery else 'NULL'},
+                {self.temperature if self.temperature else 'NULL'},
+                {self.__rssi if self.__rssi else 'NULL'},
+                {self.__snr if self.__snr else 'NULL'},
+                {self.__sf if self.__sf else 'NULL'}
+            )
+            ON CONFLICT(deveui)
+            DO UPDATE SET
+            t='{datetime.utcnow()}',
+            batt_v={self.battery if self.battery else 'NULL'},
+            temp={self.temperature if self.temperature else 'NULL'},
+            rssi={self.__rssi if self.__rssi else 'NULL'},
+            snr={self.__snr if self.__snr else 'NULL'},
+            sf={self.__sf if self.__sf else 'NULL'}
+            ;
+            '''
+            await conn.execute(sql)
+
+            # trigger cow movement check
+            await cows.check_cow_movement(self.dev_eui)
+
