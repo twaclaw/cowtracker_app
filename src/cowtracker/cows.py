@@ -94,6 +94,9 @@ class _Warning():
             return f"El animal está muy lejos, a aprox. {round(self.value, 1)}m del Ortigal"
 
         if self.code == _WarningType.NO_GPS_FIX:
+            t: datetime = datetime.fromtimestamp(self.value)
+            t.astimezone(_TZ).strftime("%H:%M:%S %d-%m")
+
             return f"No hace un fix de GPS desde las {t}"
 
 
