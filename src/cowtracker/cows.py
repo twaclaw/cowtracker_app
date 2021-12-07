@@ -106,6 +106,12 @@ class _PointRecord():
         self.status = _WarningVariant.NONE
         self._lastseen = lastseen
 
+        # Values in lastseen are more up to date. Values in self._data
+        # are only updated when a fix occurs.
+        for v in ['t', 'batt_v', 'temp', 'rssi', 'snr', 'sf']:
+            if v in self._lastseen:
+                self._data[v] = self._lastseen[v]
+
     @property
     def localtime(self):
         t: datetime = self._data['t']
