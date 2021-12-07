@@ -106,12 +106,6 @@ class _PointRecord():
         self.status = _WarningVariant.NONE
         self._lastseen = lastseen
 
-        # Values in lastseen are more up to date. Values in self._data
-        # are only updated when a fix occurs.
-        for v in ['t', 'batt_v', 'temp', 'rssi', 'snr', 'sf']:
-            if v in self._lastseen:
-                self._data[v] = self._lastseen[v]
-
     @property
     def localtime(self):
         t: datetime = self._data['t']
@@ -150,7 +144,7 @@ class _PointRecord():
     def get_warnings(self, to_json: Optional[bool] = True) -> List[_Warning]:
         t = self._data['t']
         t_ls = self.lastseen_timestamp
-        batt_V = self._data['batt_v']
+        batt_V = self._lastseen['batt_v']
         batt_cap = self._data['batt_cap']
         warns: List[Dict] = []
         self.status = _WarningVariant.INFO
@@ -228,7 +222,13 @@ class _PointRecord():
                 t = value.timestamp()
                 point[key] = t
             elif key != 'id' and key != 'deveui':
-                point[key] = value
+                if key in ['batt_v', 'temp', 'rssi', 'snr', 'sf']:
+                    if key in self._lastseen:
+                        point[key] = self._lastseen[key]
+                    else:
+                        point[key] = value
+                else:
+                    point[key] = value
 
         if name is not None:
             point['name'] = name
